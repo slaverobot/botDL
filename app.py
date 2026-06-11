@@ -56,38 +56,43 @@ def analyze():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # ============ COMPLETE FIX FOR YOUTUBE ============
-    # Options za kisasa za kukwepa YouTube block
+    # ============ COMPLETE FIX FOR ALL PLATFORMS ============
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': True,
         'extract_flat': False,
         'force_generic_extractor': False,
-        'cookiefile': None,  # Optional: add cookies.txt if you have
         'geo_bypass': True,
         'geo_bypass_country': 'US',
-        # Critical: Use mobile client to bypass bot detection
+        # Headers for all platforms
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+        },
+        'format': 'best[ext=mp4]/best',
+        # Platform-specific extractor arguments
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'ios', 'web_music', 'mweb'],
                 'player_skip': ['webpage', 'configs', 'js'],
                 'skip': ['hls', 'dash', 'live'],
                 'try_all_clients': True,
+            },
+            'tiktok': {
+                'extractor_args': {
+                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
+                }
+            },
+            'instagram': {
+                'extractor_args': {
+                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
+                }
             }
-        },
-        'headers': {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Upgrade-Insecure-Requests': '1',
-        },
-        'format': 'best[ext=mp4]/best',
+        }
     }
     
     try:
@@ -185,7 +190,7 @@ def analyze():
         
     except Exception as e:
         error_msg = str(e)
-        print(f"Analysis error: {error_msg}")  # For debugging
+        print(f"Analysis error: {error_msg}")
         
         if "Unsupported URL" in error_msg:
             return jsonify({'error': 'Unsupported platform or invalid URL'}), 400
@@ -194,7 +199,7 @@ def analyze():
         elif "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
             return jsonify({'error': 'YouTube requires login. Try TikTok, Instagram, or Facebook instead.'}), 400
         elif "unable to extract" in error_msg.lower():
-            return jsonify({'error': 'YouTube video extraction failed. Try a different video or platform.'}), 400
+            return jsonify({'error': 'Video extraction failed. Try a different video or platform.'}), 400
         
         return jsonify({'error': f'Analysis failed: {error_msg[:150]}'}), 500
 
@@ -211,6 +216,30 @@ def download():
     download_id = str(uuid.uuid4())[:8]
     is_audio = format_id == 'bestaudio/best'
     
+    # Common headers for download
+    common_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    
+    # Common extractor args for all platforms
+    common_extractor_args = {
+        'youtube': {
+            'player_client': ['android', 'ios', 'mweb'],
+            'player_skip': ['webpage', 'configs', 'js'],
+            'skip': ['hls', 'dash', 'live'],
+        },
+        'tiktok': {
+            'extractor_args': {
+                'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
+            }
+        },
+        'instagram': {
+            'extractor_args': {
+                'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
+            }
+        }
+    }
+    
     try:
         if is_audio:
             output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
@@ -219,16 +248,8 @@ def download():
                 'outtmpl': output_template,
                 'quiet': True,
                 'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'ios', 'mweb'],
-                        'player_skip': ['webpage', 'configs', 'js'],
-                        'skip': ['hls', 'dash', 'live'],
-                    }
-                },
-                'headers': {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
-                },
+                'extractor_args': common_extractor_args,
+                'headers': common_headers,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
@@ -264,16 +285,8 @@ def download():
                 'quiet': True,
                 'no_warnings': True,
                 'merge_output_format': 'mp4',
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'ios', 'mweb'],
-                        'player_skip': ['webpage', 'configs', 'js'],
-                        'skip': ['hls', 'dash', 'live'],
-                    }
-                },
-                'headers': {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
-                },
+                'extractor_args': common_extractor_args,
+                'headers': common_headers,
             }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -319,7 +332,7 @@ def download():
                     pass
         error_msg = str(e)
         if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-            return jsonify({'error': 'YouTube download blocked. Try TikTok, Instagram, or Facebook instead.'}), 500
+            return jsonify({'error': 'Download blocked. Try TikTok, Instagram, or Facebook instead.'}), 500
         return jsonify({'error': f'Download failed: {error_msg[:150]}'}), 500
 
 @app.route('/progress/<download_id>')
@@ -340,6 +353,7 @@ if __name__ == '__main__':
     print("🎨 Theme: Black, White & Green")
     print("👑 Premium: 2K, 4K, 5K, 8K & Batch Downloads")
     print("📱 Free: 144p - 1080p")
-    print("⚠️ YouTube may have limitations. TikTok/Instagram/Facebook work perfectly!")
+    print("✅ TikTok/Instagram/Facebook: Supported")
+    print("⚠️ YouTube: May have limitations")
     print("=" * 55)
     app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
