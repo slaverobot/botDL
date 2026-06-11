@@ -9,8 +9,13 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# Create downloads directory if not exists
-DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
+# ============ DOWNLOAD DIRECTORY SETUP ============
+# Kwa Render (production) au local development
+if os.environ.get('RENDER'):
+    DOWNLOAD_DIR = '/tmp/downloads'
+else:
+    DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
+
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 def get_platform(url):
@@ -53,9 +58,23 @@ def analyze():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
+    # Anti-bot protection for YouTube and other platforms
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],  # Android client bypasses some restrictions
+                'skip': ['webpage', 'hls', 'dash']     # Skip problematic formats
+            },
+            'tiktok': {
+                'extractor_args': {
+                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
+                }
+            }
+        },
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'format': 'best[ext=mp4]/best',  # Prefer mp4 format
     }
     
     try:
@@ -76,14 +95,22 @@ def analyze():
             2160: '2160p (4K UHD)', 2880: '2880p (5K)', 4320: '4320p (8K UHD)'
         }
         
+        # Premium qualities list
+        premium_qualities = ['2K', 'QHD', '1440p', '4K', '2160p', '5K', '2880p', '8K', '4320p']
+        
         for f in info.get('formats', []):
             height = f.get('height')
             vcodec = f.get('vcodec', 'none')
+            acodec = f.get('acodec', 'none')
             
+            # Include formats that have video (with or without audio)
             if height and vcodec != 'none' and height <= 4320:
                 # Find closest quality label
                 closest_height = min(quality_map.keys(), key=lambda x: abs(x - height))
                 label = quality_map[closest_height]
+                
+                # Mark premium qualities
+                is_premium = any(pq in label for pq in premium_qualities)
                 
                 if label not in seen_qualities:
                     seen_qualities.add(label)
@@ -93,7 +120,9 @@ def analyze():
                         'quality': label,
                         'ext': f.get('ext', 'mp4'),
                         'type': 'video',
-                        'height': height
+                        'height': height,
+                        'premium': is_premium,
+                        'has_audio': acodec != 'none'
                     })
         
         # Sort by height
@@ -105,7 +134,8 @@ def analyze():
             'label': 'MP3 Audio',
             'quality': 'mp3',
             'ext': 'mp3',
-            'type': 'audio'
+            'type': 'audio',
+            'premium': False
         })
         
         # Ensure all standard qualities are represented
@@ -115,13 +145,15 @@ def analyze():
         existing_labels = [f['label'] for f in formats]
         for sq in standard_qualities:
             if sq not in existing_labels:
+                is_premium = any(pq in sq for pq in premium_qualities)
                 formats.append({
                     'format_id': 'best',
                     'label': sq,
                     'quality': sq,
                     'ext': 'mp4',
                     'type': 'video',
-                    'unavailable': True
+                    'unavailable': True,
+                    'premium': is_premium
                 })
         
         # Get thumbnail
@@ -145,7 +177,11 @@ def analyze():
         return jsonify(result)
         
     except Exception as e:
-        return jsonify({'error': f'Analysis failed: {str(e)[:100]}'}), 500
+        error_msg = str(e)
+        # Handle YouTube anti-bot error gracefully
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            return jsonify({'error': 'YouTube anti-bot protection detected. Try a different video or use TikTok/Instagram/Facebook.'}), 400
+        return jsonify({'error': f'Analysis failed: {error_msg[:150]}'}), 500
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -169,6 +205,13 @@ def download():
                 'outtmpl': output_template,
                 'quiet': True,
                 'no_warnings': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android'],
+                        'skip': ['webpage', 'hls', 'dash']
+                    }
+                },
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
@@ -193,10 +236,14 @@ def download():
                     height = val
                     break
             
-            if height and height <= 4320:
+            # Use best format that doesn't require merging when possible
+            if height and height <= 1080:
+                # For 1080p and below, try to get direct format with audio
+                format_str = f'best[height<={height}][ext=mp4]/best[height<={height}]'
+            elif height and height <= 4320:
                 format_str = f'bestvideo[height<={height}]+bestaudio/best'
             else:
-                format_str = 'bestvideo+bestaudio/best'
+                format_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
             
             ydl_opts = {
                 'format': format_str,
@@ -204,11 +251,18 @@ def download():
                 'quiet': True,
                 'no_warnings': True,
                 'merge_output_format': 'mp4',
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android'],
+                        'skip': ['webpage', 'hls', 'dash']
+                    }
+                },
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             }
         
         # Execute download
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
+            info = ydl.extract_info(url, download=True)
         
         # Find downloaded file
         downloaded_file = None
@@ -241,6 +295,7 @@ def download():
             try:
                 if os.path.exists(downloaded_file):
                     os.remove(downloaded_file)
+                    print(f"Cleaned up: {downloaded_file}")
             except Exception as e:
                 print(f"Cleanup error: {e}")
         
@@ -254,7 +309,10 @@ def download():
                     os.remove(os.path.join(DOWNLOAD_DIR, file))
                 except:
                     pass
-        return jsonify({'error': f'Download failed: {str(e)[:150]}'}), 500
+        error_msg = str(e)
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            return jsonify({'error': 'YouTube anti-bot protection. Try a different video or platform like TikTok/Instagram.'}), 500
+        return jsonify({'error': f'Download failed: {error_msg[:150]}'}), 500
 
 @app.route('/progress/<download_id>')
 def get_progress(download_id):
@@ -271,10 +329,12 @@ def add_header(response):
 
 if __name__ == '__main__':
     print("=" * 55)
-    print("🎥 VortexDL Video Downloader")
+    print("🎬 botDL - Social Media Video Downloader")
     print("📍 Server: http://127.0.0.1:5000")
     print("🎨 Theme: Black, White & Green")
     print("👑 Premium: 2K, 4K, 5K, 8K & Batch Downloads")
     print("📱 Free: 144p - 1080p")
+    print("🔊 Audio: MP3 supported")
+    print("🤖 Anti-bot protection enabled for YouTube")
     print("=" * 55)
-    app.run(debug=True, port=5000, host='127.0.0.1', threaded=True)
+    app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
