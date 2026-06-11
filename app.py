@@ -56,41 +56,17 @@ def analyze():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # ============ COMPLETE FIX FOR ALL PLATFORMS ============
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': True,
-        'extract_flat': False,
-        'force_generic_extractor': False,
-        'geo_bypass': True,
-        'geo_bypass_country': 'US',
-        # Headers for all platforms
         'headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
         },
-        'format': 'best[ext=mp4]/best',
-        # Platform-specific extractor arguments
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'web_music', 'mweb'],
+                'player_client': ['android', 'ios'],
                 'player_skip': ['webpage', 'configs', 'js'],
-                'skip': ['hls', 'dash', 'live'],
-                'try_all_clients': True,
-            },
-            'tiktok': {
-                'extractor_args': {
-                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-                }
-            },
-            'instagram': {
-                'extractor_args': {
-                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-                }
             }
         }
     }
@@ -102,7 +78,7 @@ def analyze():
         if not info:
             return jsonify({'error': 'Could not extract video information'}), 400
         
-        # Collect available formats
+        # Collect available formats - ONLY those with audio
         formats = []
         seen_qualities = set()
         
@@ -112,18 +88,16 @@ def analyze():
             2160: '2160p (4K UHD)', 2880: '2880p (5K)', 4320: '4320p (8K UHD)'
         }
         
-        premium_qualities = ['2K', 'QHD', '1440p', '4K', '2160p', '5K', '2880p', '8K', '4320p']
-        
         for f in info.get('formats', []):
             height = f.get('height')
             vcodec = f.get('vcodec', 'none')
             acodec = f.get('acodec', 'none')
             ext = f.get('ext', 'mp4')
             
-            if height and vcodec != 'none' and height <= 4320:
+            # ONLY include formats that have BOTH video AND audio
+            if height and vcodec != 'none' and acodec != 'none' and height <= 4320:
                 closest_height = min(quality_map.keys(), key=lambda x: abs(x - height))
                 label = quality_map[closest_height]
-                is_premium = any(pq in label for pq in premium_qualities)
                 
                 if label not in seen_qualities:
                     seen_qualities.add(label)
@@ -134,8 +108,7 @@ def analyze():
                         'ext': ext,
                         'type': 'video',
                         'height': height,
-                        'premium': is_premium,
-                        'has_audio': acodec != 'none'
+                        'has_audio': True
                     })
         
         formats.sort(key=lambda x: x.get('height', 0))
@@ -143,11 +116,10 @@ def analyze():
         # Add MP3 audio
         formats.append({
             'format_id': 'bestaudio/best',
-            'label': 'MP3 Audio',
+            'label': 'MP3',
             'quality': 'mp3',
             'ext': 'mp3',
-            'type': 'audio',
-            'premium': False
+            'type': 'audio'
         })
         
         # Ensure standard qualities are represented
@@ -157,18 +129,15 @@ def analyze():
         existing_labels = [f['label'] for f in formats]
         for sq in standard_qualities:
             if sq not in existing_labels:
-                is_premium = any(pq in sq for pq in premium_qualities)
                 formats.append({
                     'format_id': 'best',
                     'label': sq,
                     'quality': sq,
                     'ext': 'mp4',
                     'type': 'video',
-                    'unavailable': True,
-                    'premium': is_premium
+                    'unavailable': True
                 })
         
-        # Get best thumbnail
         thumbnail = info.get('thumbnail', '')
         if not thumbnail and info.get('thumbnails'):
             thumbnails = info.get('thumbnails', [])
@@ -191,16 +160,6 @@ def analyze():
     except Exception as e:
         error_msg = str(e)
         print(f"Analysis error: {error_msg}")
-        
-        if "Unsupported URL" in error_msg:
-            return jsonify({'error': 'Unsupported platform or invalid URL'}), 400
-        elif "Private video" in error_msg:
-            return jsonify({'error': 'This video is private'}), 400
-        elif "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-            return jsonify({'error': 'YouTube requires login. Try TikTok, Instagram, or Facebook instead.'}), 400
-        elif "unable to extract" in error_msg.lower():
-            return jsonify({'error': 'Video extraction failed. Try a different video or platform.'}), 400
-        
         return jsonify({'error': f'Analysis failed: {error_msg[:150]}'}), 500
 
 @app.route('/download', methods=['POST'])
@@ -216,40 +175,15 @@ def download():
     download_id = str(uuid.uuid4())[:8]
     is_audio = format_id == 'bestaudio/best'
     
-    # Common headers for download
-    common_headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    }
-    
-    # Common extractor args for all platforms
-    common_extractor_args = {
-        'youtube': {
-            'player_client': ['android', 'ios', 'mweb'],
-            'player_skip': ['webpage', 'configs', 'js'],
-            'skip': ['hls', 'dash', 'live'],
-        },
-        'tiktok': {
-            'extractor_args': {
-                'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-            }
-        },
-        'instagram': {
-            'extractor_args': {
-                'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-            }
-        }
-    }
-    
     try:
+        output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
+        
         if is_audio:
-            output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
+            # Download audio only
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': output_template,
                 'quiet': True,
-                'no_warnings': True,
-                'extractor_args': common_extractor_args,
-                'headers': common_headers,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
@@ -257,36 +191,26 @@ def download():
                 }]
             }
         else:
-            output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
-            
-            quality_height = {
-                '144p': 144, '240p': 240, '360p': 360, '480p': 480,
-                '720p': 720, '1080p': 1080, '1440p': 1440, '2K': 1440,
-                '2160p': 2160, '4K': 2160, '2880p': 2880, '5K': 2880,
-                '4320p': 4320, '8K': 4320
-            }
-            
-            height = None
-            for key, val in quality_height.items():
-                if key in str(format_id):
-                    height = val
-                    break
-            
-            if height and height <= 1080:
-                format_str = f'best[height<={height}][ext=mp4]/best[height<={height}]'
-            elif height and height <= 4320:
-                format_str = f'bestvideo[height<={height}]+bestaudio/best'
+            # IMPORTANT FIX: Use format that already has audio
+            # Try specific format_id first, otherwise use best mp4 with audio
+            if format_id and format_id.isdigit():
+                format_str = format_id
             else:
-                format_str = 'best[ext=mp4]/best'
+                # For heights, get best mp4 format with audio
+                # Extract numeric value from label
+                import re
+                height_match = re.search(r'(\d+)', str(format_id))
+                if height_match:
+                    height = int(height_match.group(1))
+                    format_str = f'best[height<={height}][ext=mp4]/best[ext=mp4]'
+                else:
+                    format_str = 'best[ext=mp4]'
             
             ydl_opts = {
                 'format': format_str,
                 'outtmpl': output_template,
                 'quiet': True,
                 'no_warnings': True,
-                'merge_output_format': 'mp4',
-                'extractor_args': common_extractor_args,
-                'headers': common_headers,
             }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -331,8 +255,6 @@ def download():
                 except:
                     pass
         error_msg = str(e)
-        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-            return jsonify({'error': 'Download blocked. Try TikTok, Instagram, or Facebook instead.'}), 500
         return jsonify({'error': f'Download failed: {error_msg[:150]}'}), 500
 
 @app.route('/progress/<download_id>')
@@ -348,12 +270,8 @@ def add_header(response):
 
 if __name__ == '__main__':
     print("=" * 55)
-    print("🎬 botDL - Social Media Video Downloader")
+    print("🎬 botDL - Video Downloader (WITH AUDIO)")
     print("📍 Server: http://127.0.0.1:5000")
-    print("🎨 Theme: Black, White & Green")
-    print("👑 Premium: 2K, 4K, 5K, 8K & Batch Downloads")
-    print("📱 Free: 144p - 1080p")
-    print("✅ TikTok/Instagram/Facebook: Supported")
-    print("⚠️ YouTube: May have limitations")
+    print("✅ All videos include audio!")
     print("=" * 55)
     app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
