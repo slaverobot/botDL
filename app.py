@@ -4,6 +4,7 @@ import yt_dlp
 import os
 import re
 import uuid
+import json
 from datetime import datetime
 
 app = Flask(__name__)
@@ -55,32 +56,37 @@ def analyze():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # ============ COMPLETE YOUTUBE FIX ============
+    # ============ COMPLETE FIX FOR YOUTUBE ============
+    # Options za kisasa za kukwepa YouTube block
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': True,
         'extract_flat': False,
         'force_generic_extractor': False,
-        # Use mobile client to bypass bot detection
+        'cookiefile': None,  # Optional: add cookies.txt if you have
+        'geo_bypass': True,
+        'geo_bypass_country': 'US',
+        # Critical: Use mobile client to bypass bot detection
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'web'],
-                'skip': ['dash', 'hls', 'webpage'],
-                'player_skip': ['configs', 'webpage'],
+                'player_client': ['android', 'ios', 'web_music', 'mweb'],
+                'player_skip': ['webpage', 'configs', 'js'],
+                'skip': ['hls', 'dash', 'live'],
+                'try_all_clients': True,
             }
         },
-        # Use proper headers
         'headers': {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Upgrade-Insecure-Requests': '1',
         },
-        # Use cookies file if exists
-        'cookiefile': os.path.join(os.path.dirname(__file__), 'cookies.txt') if os.path.exists(os.path.join(os.path.dirname(__file__), 'cookies.txt')) else None,
-        # Prefer direct formats
         'format': 'best[ext=mp4]/best',
     }
     
@@ -107,6 +113,7 @@ def analyze():
             height = f.get('height')
             vcodec = f.get('vcodec', 'none')
             acodec = f.get('acodec', 'none')
+            ext = f.get('ext', 'mp4')
             
             if height and vcodec != 'none' and height <= 4320:
                 closest_height = min(quality_map.keys(), key=lambda x: abs(x - height))
@@ -119,7 +126,7 @@ def analyze():
                         'format_id': str(f.get('format_id')),
                         'label': label,
                         'quality': label,
-                        'ext': f.get('ext', 'mp4'),
+                        'ext': ext,
                         'type': 'video',
                         'height': height,
                         'premium': is_premium,
@@ -138,6 +145,7 @@ def analyze():
             'premium': False
         })
         
+        # Ensure standard qualities are represented
         standard_qualities = ['144p', '240p', '360p', '480p', '720p', '1080p', 
                               '1440p (2K/QHD)', '2160p (4K UHD)', '2880p (5K)', '4320p (8K UHD)']
         
@@ -155,6 +163,7 @@ def analyze():
                     'premium': is_premium
                 })
         
+        # Get best thumbnail
         thumbnail = info.get('thumbnail', '')
         if not thumbnail and info.get('thumbnails'):
             thumbnails = info.get('thumbnails', [])
@@ -176,10 +185,17 @@ def analyze():
         
     except Exception as e:
         error_msg = str(e)
-        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower() or "login" in error_msg.lower():
-            # Try alternative approach for YouTube
-            if "youtube" in url.lower():
-                return jsonify({'error': 'YouTube video cannot be analyzed. Try a different platform (TikTok, Instagram, Facebook) or check if the video is public.'}), 400
+        print(f"Analysis error: {error_msg}")  # For debugging
+        
+        if "Unsupported URL" in error_msg:
+            return jsonify({'error': 'Unsupported platform or invalid URL'}), 400
+        elif "Private video" in error_msg:
+            return jsonify({'error': 'This video is private'}), 400
+        elif "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            return jsonify({'error': 'YouTube requires login. Try TikTok, Instagram, or Facebook instead.'}), 400
+        elif "unable to extract" in error_msg.lower():
+            return jsonify({'error': 'YouTube video extraction failed. Try a different video or platform.'}), 400
+        
         return jsonify({'error': f'Analysis failed: {error_msg[:150]}'}), 500
 
 @app.route('/download', methods=['POST'])
@@ -205,12 +221,13 @@ def download():
                 'no_warnings': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android'],
-                        'skip': ['dash', 'hls', 'webpage'],
+                        'player_client': ['android', 'ios', 'mweb'],
+                        'player_skip': ['webpage', 'configs', 'js'],
+                        'skip': ['hls', 'dash', 'live'],
                     }
                 },
                 'headers': {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
                 },
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
@@ -239,7 +256,7 @@ def download():
             elif height and height <= 4320:
                 format_str = f'bestvideo[height<={height}]+bestaudio/best'
             else:
-                format_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+                format_str = 'best[ext=mp4]/best'
             
             ydl_opts = {
                 'format': format_str,
@@ -249,12 +266,13 @@ def download():
                 'merge_output_format': 'mp4',
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android'],
-                        'skip': ['dash', 'hls', 'webpage'],
+                        'player_client': ['android', 'ios', 'mweb'],
+                        'player_skip': ['webpage', 'configs', 'js'],
+                        'skip': ['hls', 'dash', 'live'],
                     }
                 },
                 'headers': {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
                 },
             }
         
@@ -322,5 +340,6 @@ if __name__ == '__main__':
     print("🎨 Theme: Black, White & Green")
     print("👑 Premium: 2K, 4K, 5K, 8K & Batch Downloads")
     print("📱 Free: 144p - 1080p")
+    print("⚠️ YouTube may have limitations. TikTok/Instagram/Facebook work perfectly!")
     print("=" * 55)
     app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
