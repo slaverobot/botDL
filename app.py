@@ -10,7 +10,6 @@ app = Flask(__name__)
 CORS(app)
 
 # ============ DOWNLOAD DIRECTORY SETUP ============
-# Kwa Render (production) au local development
 if os.environ.get('RENDER'):
     DOWNLOAD_DIR = '/tmp/downloads'
 else:
@@ -46,35 +45,43 @@ def format_duration(seconds):
 
 @app.route('/')
 def index():
-    """Serve the main page"""
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """Analyze video URL and return available formats"""
     data = request.get_json()
     url = data.get('url', '').strip()
     
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # Anti-bot protection for YouTube and other platforms
+    # ============ COMPLETE YOUTUBE FIX ============
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
+        'ignoreerrors': True,
+        'extract_flat': False,
+        'force_generic_extractor': False,
+        # Use mobile client to bypass bot detection
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web'],  # Android client bypasses some restrictions
-                'skip': ['webpage', 'hls', 'dash']     # Skip problematic formats
-            },
-            'tiktok': {
-                'extractor_args': {
-                    'headers': ['User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-                }
+                'player_client': ['android', 'ios', 'web'],
+                'skip': ['dash', 'hls', 'webpage'],
+                'player_skip': ['configs', 'webpage'],
             }
         },
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'format': 'best[ext=mp4]/best',  # Prefer mp4 format
+        # Use proper headers
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+        },
+        # Use cookies file if exists
+        'cookiefile': os.path.join(os.path.dirname(__file__), 'cookies.txt') if os.path.exists(os.path.join(os.path.dirname(__file__), 'cookies.txt')) else None,
+        # Prefer direct formats
+        'format': 'best[ext=mp4]/best',
     }
     
     try:
@@ -88,14 +95,12 @@ def analyze():
         formats = []
         seen_qualities = set()
         
-        # Quality mapping
         quality_map = {
             144: '144p', 240: '240p', 360: '360p', 480: '480p',
             720: '720p', 1080: '1080p', 1440: '1440p (2K/QHD)',
             2160: '2160p (4K UHD)', 2880: '2880p (5K)', 4320: '4320p (8K UHD)'
         }
         
-        # Premium qualities list
         premium_qualities = ['2K', 'QHD', '1440p', '4K', '2160p', '5K', '2880p', '8K', '4320p']
         
         for f in info.get('formats', []):
@@ -103,13 +108,9 @@ def analyze():
             vcodec = f.get('vcodec', 'none')
             acodec = f.get('acodec', 'none')
             
-            # Include formats that have video (with or without audio)
             if height and vcodec != 'none' and height <= 4320:
-                # Find closest quality label
                 closest_height = min(quality_map.keys(), key=lambda x: abs(x - height))
                 label = quality_map[closest_height]
-                
-                # Mark premium qualities
                 is_premium = any(pq in label for pq in premium_qualities)
                 
                 if label not in seen_qualities:
@@ -125,10 +126,9 @@ def analyze():
                         'has_audio': acodec != 'none'
                     })
         
-        # Sort by height
         formats.sort(key=lambda x: x.get('height', 0))
         
-        # Add MP3 audio option
+        # Add MP3 audio
         formats.append({
             'format_id': 'bestaudio/best',
             'label': 'MP3 Audio',
@@ -138,7 +138,6 @@ def analyze():
             'premium': False
         })
         
-        # Ensure all standard qualities are represented
         standard_qualities = ['144p', '240p', '360p', '480p', '720p', '1080p', 
                               '1440p (2K/QHD)', '2160p (4K UHD)', '2880p (5K)', '4320p (8K UHD)']
         
@@ -156,7 +155,6 @@ def analyze():
                     'premium': is_premium
                 })
         
-        # Get thumbnail
         thumbnail = info.get('thumbnail', '')
         if not thumbnail and info.get('thumbnails'):
             thumbnails = info.get('thumbnails', [])
@@ -178,14 +176,14 @@ def analyze():
         
     except Exception as e:
         error_msg = str(e)
-        # Handle YouTube anti-bot error gracefully
-        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-            return jsonify({'error': 'YouTube anti-bot protection detected. Try a different video or use TikTok/Instagram/Facebook.'}), 400
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower() or "login" in error_msg.lower():
+            # Try alternative approach for YouTube
+            if "youtube" in url.lower():
+                return jsonify({'error': 'YouTube video cannot be analyzed. Try a different platform (TikTok, Instagram, Facebook) or check if the video is public.'}), 400
         return jsonify({'error': f'Analysis failed: {error_msg[:150]}'}), 500
 
 @app.route('/download', methods=['POST'])
 def download():
-    """Download video in selected format"""
     data = request.get_json()
     url = data.get('url', '').strip()
     format_id = data.get('format_id', '')
@@ -208,10 +206,12 @@ def download():
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android'],
-                        'skip': ['webpage', 'hls', 'dash']
+                        'skip': ['dash', 'hls', 'webpage'],
                     }
                 },
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
+                },
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
@@ -221,7 +221,6 @@ def download():
         else:
             output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
             
-            # Quality to height mapping
             quality_height = {
                 '144p': 144, '240p': 240, '360p': 360, '480p': 480,
                 '720p': 720, '1080p': 1080, '1440p': 1440, '2K': 1440,
@@ -229,16 +228,13 @@ def download():
                 '4320p': 4320, '8K': 4320
             }
             
-            # Extract height from format label if possible
             height = None
             for key, val in quality_height.items():
                 if key in str(format_id):
                     height = val
                     break
             
-            # Use best format that doesn't require merging when possible
             if height and height <= 1080:
-                # For 1080p and below, try to get direct format with audio
                 format_str = f'best[height<={height}][ext=mp4]/best[height<={height}]'
             elif height and height <= 4320:
                 format_str = f'bestvideo[height<={height}]+bestaudio/best'
@@ -254,17 +250,17 @@ def download():
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android'],
-                        'skip': ['webpage', 'hls', 'dash']
+                        'skip': ['dash', 'hls', 'webpage'],
                     }
                 },
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36',
+                },
             }
         
-        # Execute download
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
         
-        # Find downloaded file
         downloaded_file = None
         for file in os.listdir(DOWNLOAD_DIR):
             if file.startswith(download_id):
@@ -274,15 +270,11 @@ def download():
         if not downloaded_file or not os.path.exists(downloaded_file):
             return jsonify({'error': 'Download failed - file not found'}), 500
         
-        # Determine file extension
         ext = downloaded_file.split('.')[-1] if '.' in downloaded_file else 'mp4'
-        
-        # Clean filename for download
         safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
         safe_title = re.sub(r'[\s]+', '_', safe_title)
         download_name = f"{safe_title}.{ext}"
         
-        # Send file and cleanup after
         response = send_file(
             downloaded_file,
             as_attachment=True,
@@ -295,14 +287,12 @@ def download():
             try:
                 if os.path.exists(downloaded_file):
                     os.remove(downloaded_file)
-                    print(f"Cleaned up: {downloaded_file}")
             except Exception as e:
                 print(f"Cleanup error: {e}")
         
         return response
         
     except Exception as e:
-        # Cleanup on error
         for file in os.listdir(DOWNLOAD_DIR):
             if file.startswith(download_id):
                 try:
@@ -311,15 +301,13 @@ def download():
                     pass
         error_msg = str(e)
         if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-            return jsonify({'error': 'YouTube anti-bot protection. Try a different video or platform like TikTok/Instagram.'}), 500
+            return jsonify({'error': 'YouTube download blocked. Try TikTok, Instagram, or Facebook instead.'}), 500
         return jsonify({'error': f'Download failed: {error_msg[:150]}'}), 500
 
 @app.route('/progress/<download_id>')
 def get_progress(download_id):
-    """Get download progress"""
     return jsonify({'status': 'completed', 'percent': 100})
 
-# Add cache control headers
 @app.after_request
 def add_header(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -334,7 +322,5 @@ if __name__ == '__main__':
     print("🎨 Theme: Black, White & Green")
     print("👑 Premium: 2K, 4K, 5K, 8K & Batch Downloads")
     print("📱 Free: 144p - 1080p")
-    print("🔊 Audio: MP3 supported")
-    print("🤖 Anti-bot protection enabled for YouTube")
     print("=" * 55)
     app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
