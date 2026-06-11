@@ -27,17 +27,12 @@ const jumpColors = [
 function jumpLetter(letterSpan, color) {
     if (!letterSpan) return;
     
-    // Add jumping class
     letterSpan.classList.add('jumping');
-    
-    // Change color
     letterSpan.style.color = color;
     
-    // Remove jumping class after animation (0.6 seconds)
     setTimeout(() => {
         if (letterSpan) {
             letterSpan.classList.remove('jumping');
-            // Reset color to default
             letterSpan.style.color = '';
         }
     }, 600);
@@ -47,25 +42,18 @@ function jumpLetter(letterSpan, color) {
 function jumpNextLetter() {
     if (!animatedNameElement) return;
     
-    // Get all letter spans
     const letterSpans = animatedNameElement.querySelectorAll('.letter-jump');
-    
     if (letterSpans.length === 0) return;
     
-    // Get current letter span
     const currentSpan = letterSpans[currentLetterIndex];
     
     if (currentSpan && currentSpan.textContent.trim() !== '') {
-        // Get color for this letter
         const colorIndex = currentLetterIndex % jumpColors.length;
-        // Make the letter jump
         jumpLetter(currentSpan, jumpColors[colorIndex]);
     }
     
-    // Move to next letter
     currentLetterIndex++;
     
-    // If we've reached the end, start over
     if (currentLetterIndex >= letterSpans.length) {
         currentLetterIndex = 0;
     }
@@ -75,19 +63,14 @@ function jumpNextLetter() {
 function initAnimatedName() {
     if (!animatedNameElement) return;
     
-    // Clear the element
     animatedNameElement.innerHTML = '';
-    
-    // Split the name into individual letters
     const letters = fullName.split('');
     
-    // Create spans for each letter
     letters.forEach((letter) => {
         const span = document.createElement('span');
         span.textContent = letter;
         span.className = 'letter-jump';
         
-        // Handle spaces
         if (letter === ' ') {
             span.style.width = '0.5rem';
             span.style.display = 'inline-block';
@@ -97,7 +80,6 @@ function initAnimatedName() {
         animatedNameElement.appendChild(span);
     });
     
-    // Start the animation interval (every 0.8 seconds)
     if (animationInterval) clearInterval(animationInterval);
     animationInterval = setInterval(jumpNextLetter, 800);
 }
@@ -183,7 +165,7 @@ function showToast(message, isError = false, isPremiumNotice = false) {
 
 // Show premium payment modal
 function showPremiumRequired(quality) {
-    showToast(`🔒 ${quality} requires Premium subscription! Upgrade now to unlock 2K, 4K, 5K, 8K & batch downloads.`, false, true);
+    showToast(`🔒 ${quality} requires Premium subscription!`, false, true);
     if (premiumModal) premiumModal.classList.add('active');
 }
 
@@ -267,7 +249,10 @@ async function addBatchUrl() {
             body: JSON.stringify({ url: url })
         });
         
-        if (!response.ok) throw new Error('Failed to analyze');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to analyze');
+        }
         
         const data = await response.json();
         
@@ -284,7 +269,6 @@ async function addBatchUrl() {
             error: null
         };
         
-        // Auto-select first free quality
         const firstFreeFormat = data.formats?.find(f => !isQualityPremium(f.label));
         if (firstFreeFormat) batchItem.selectedFormat = firstFreeFormat;
         
@@ -330,12 +314,12 @@ function renderBatchQualitySelector(item) {
     for (const q of qualities) {
         let foundFormat = item.formats.find(f => f.label.includes(q));
         if (foundFormat) {
-            const isPremium = isQualityPremium(foundFormat.label);
+            const isPremiumQ = isQualityPremium(foundFormat.label);
             const isSelected = item.selectedFormat?.format_id === foundFormat.format_id;
             selector.push(`
-                <button class="batch-quality-btn ${isSelected ? 'active' : ''} ${isPremium && !isPremium ? 'premium-locked' : ''}"
+                <button class="batch-quality-btn ${isSelected ? 'active' : ''}"
                         onclick="updateBatchItemQuality(${item.id}, ${JSON.stringify(foundFormat).replace(/"/g, '&quot;')})">
-                    ${foundFormat.label} ${isPremium ? '👑' : ''}
+                    ${foundFormat.label} ${isPremiumQ ? '👑' : ''}
                 </button>
             `);
         }
@@ -587,6 +571,13 @@ async function analyzeVideo() {
         return;
     }
     
+    // Detect platform for better message
+    let detectedPlatform = 'video';
+    if (url.includes('tiktok')) detectedPlatform = 'TikTok';
+    else if (url.includes('instagram')) detectedPlatform = 'Instagram';
+    else if (url.includes('facebook')) detectedPlatform = 'Facebook';
+    else if (url.includes('youtube')) detectedPlatform = 'YouTube';
+    
     if (skeleton) skeleton.classList.add('active');
     if (videoPreview) videoPreview.style.display = 'none';
     if (qualitySection) qualitySection.style.display = 'none';
@@ -594,6 +585,8 @@ async function analyzeVideo() {
     
     if (analyzeBtn) analyzeBtn.classList.add('loading');
     if (analyzeBtn) analyzeBtn.disabled = true;
+    
+    showToast(`🔍 Analyzing ${detectedPlatform} video...`, false);
     
     try {
         const response = await fetch('/analyze', {
@@ -623,7 +616,7 @@ async function analyzeVideo() {
         if (qualitySection) qualitySection.style.display = 'block';
         if (downloadSection) downloadSection.style.display = 'block';
         
-        showToast('✓ Video analyzed successfully!');
+        showToast(`✓ ${data.platform} video analyzed successfully!`);
         
     } catch (error) {
         if (skeleton) skeleton.classList.remove('active');
@@ -656,6 +649,7 @@ async function startDownload() {
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressPercent) progressPercent.textContent = `${progress}%`;
         }
+        if (progressLabel) progressLabel.textContent = 'Downloading...';
     }, 300);
     
     try {
@@ -696,6 +690,7 @@ async function startDownload() {
             if (progressContainer) progressContainer.classList.remove('active');
             if (progressFill) progressFill.style.width = '0%';
             if (progressPercent) progressPercent.textContent = '0%';
+            if (progressLabel) progressLabel.textContent = 'Preparing...';
         }, 2000);
         
     } catch (error) {
@@ -709,7 +704,6 @@ async function startDownload() {
 
 // ============= HISTORY FUNCTIONS =============
 
-// Add to history
 function addToHistory(videoTitle, thumbnailUrl, quality) {
     const historyItem = {
         id: Date.now(),
@@ -724,7 +718,6 @@ function addToHistory(videoTitle, thumbnailUrl, quality) {
     renderHistory();
 }
 
-// Render history
 function renderHistory() {
     if (!historyList) return;
     if (downloadHistory.length === 0) {
@@ -822,13 +815,8 @@ if (urlInput) {
 
 // ============= INITIALIZATION =============
 
-// Initialize animated name
 initAnimatedName();
-
-// Initialize premium badge
 updatePremiumBadge();
-
-// Initialize history
 renderHistory();
 
 // Expose functions globally
