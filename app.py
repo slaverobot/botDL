@@ -357,9 +357,7 @@ with app.app_context():
     db.create_all()
 
 if __name__ == '__main__':
-    print("=" * 55)
-    print("🎬 botDL - Video Downloader with Authentication")
-    print("📍 Server: http://127.0.0.1:5000")
-    print("🔐 Google Authentication Enabled")
-    print("=" * 55)
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    # Ni muhimu kutumia host='0.0.0.0' ili Render iweze kupata bandari
+    app.run(debug=False, host='0.0.0.0', port=port)
