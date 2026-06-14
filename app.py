@@ -17,7 +17,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # ============ SESSION / COOKIE CONFIG ============
-# Required for OAuth state cookie to survive on HTTPS (Render)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER'))
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -139,14 +138,11 @@ def google_auth():
             print("Auth error: no token received")
             return redirect(url_for('index'))
 
-        # Authlib parses the id_token automatically into token['userinfo']
-        # when scope includes 'openid'. Fall back to userinfo endpoint if missing.
         user_info = token.get('userinfo')
         if not user_info:
             resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
             user_info = resp.json()
 
-        # Google OpenID Connect uses 'sub' as the unique user identifier, not 'id'
         user_id = user_info.get('sub')
         if not user_id:
             print("Auth error: no 'sub' field in user_info")
@@ -159,7 +155,6 @@ def google_auth():
         conn = get_db_connection()
         if conn:
             cur = conn.cursor()
-            # ON CONFLICT DO UPDATE so name/picture stay fresh on every login
             cur.execute("""
                 INSERT INTO users (id, email, name, picture)
                 VALUES (%s, %s, %s, %s)
@@ -231,6 +226,7 @@ def analyze():
 
         for f in info.get('formats', []):
             h = f.get('height')
+            # 🔥 FIX: Only include formats WITH audio (acodec != 'none')
             if h and f.get('acodec') != 'none' and h <= 4320:
                 label = qmap.get(min(qmap.keys(), key=lambda x: abs(x - h)), f'{h}p')
                 if label not in seen:
@@ -260,7 +256,7 @@ def analyze():
                 print(f"DB insert error: {db_err}")
 
         return jsonify({
-            'url': url,                              # REQUIRED: JS uses this for /download
+            'url': url,
             'title': info.get('title'),
             'thumbnail': info.get('thumbnail'),
             'duration': format_duration(info.get('duration')),
@@ -297,8 +293,9 @@ def download():
                 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]
             }
         else:
+            # 🔥 FIX: Use format that already has audio (best[ext=mp4])
             opts = {
-                'format': 'best',
+                'format': 'best[ext=mp4]/best',
                 'outtmpl': output,
                 'quiet': True
             }
@@ -362,8 +359,9 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader")
+    print("🎬 botDL - Video Downloader (WITH AUDIO FIX)")
     print(f"📍 Server: http://127.0.0.1:{port}")
     print("🔐 Google Authentication Enabled")
+    print("✅ Video downloads now include audio!")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
