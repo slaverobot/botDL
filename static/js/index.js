@@ -82,8 +82,6 @@ if (userMenu) {
         e.stopPropagation();
         userMenu.classList.toggle('active');
     });
-    
-    // Close dropdown when clicking outside
     document.addEventListener('click', () => {
         userMenu.classList.remove('active');
     });
@@ -100,6 +98,31 @@ function showToast(message, isError = false) {
     setTimeout(() => toast.remove(), 4000);
 }
 
+// ============= AUTH UI UPDATE FUNCTIONS =============
+function updateUIForLoggedInUser(user) {
+    const authContainer = document.querySelector('.auth-buttons');
+    if (authContainer) {
+        authContainer.innerHTML = `
+            <div class="user-menu">
+                <img src="${user.picture}" class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%;">
+                <span>${user.name.split(' ')[0]}</span>
+                <a href="/dashboard" class="btn-dashboard">Dashboard</a>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </div>
+        `;
+    }
+}
+
+function updateUIForLoggedOutUser() {
+    const authContainer = document.querySelector('.auth-buttons');
+    if (authContainer) {
+        authContainer.innerHTML = `
+            <a href="/login" class="btn-login">Sign In</a>
+            <a href="/login" class="btn-signup">Create Account</a>
+        `;
+    }
+}
+
 // ============= CHECK AUTH STATUS =============
 async function checkAuthStatus() {
     try {
@@ -107,15 +130,21 @@ async function checkAuthStatus() {
         if (response.ok) {
             const user = await response.json();
             console.log('User logged in:', user.email);
+            updateUIForLoggedInUser(user);
             return true;
+        } else {
+            console.log('User not logged in');
+            updateUIForLoggedOutUser();
+            return false;
         }
     } catch (error) {
-        console.log('User not logged in');
+        console.error('Error checking auth status:', error);
+        updateUIForLoggedOutUser();
+        return false;
     }
-    return false;
 }
 
-// ============= RENDER QUALITIES (Premium Style) =============
+// ============= RENDER QUALITIES =============
 function renderQualities(formats) {
     if (!qualityGrid) return;
     qualityGrid.innerHTML = '';
@@ -197,7 +226,7 @@ async function analyzeVideo() {
         const data = await response.json();
         currentVideoData = data;
         
-        if (thumbnail) thumbnail.src = data.thumbnail || 'https://via.placeholder.com/160x90';
+        if (thumbnail) thumbnail.src = data.thumbnail || 'https://placehold.co/160x90/1a1a2a/ffffff?text=No+Image';
         if (title) title.textContent = data.title || 'Unknown Title';
         if (platform) platform.textContent = data.platform || 'Unknown';
         if (duration) duration.textContent = data.duration || '--:--';
@@ -336,7 +365,7 @@ function renderHistory() {
     }
     historyList.innerHTML = downloadHistory.map(item => `
         <div class="history-item">
-            <img src="${item.thumbnail || 'https://via.placeholder.com/60x40'}" onerror="this.src='https://via.placeholder.com/60x40'">
+            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'}" onerror="this.src='https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'">
             <div class="history-info">
                 <div class="history-title">${escapeHtml(item.title)}</div>
                 <div class="history-meta">${item.timestamp}</div>
@@ -413,10 +442,12 @@ const observer = new IntersectionObserver((entries) => {
 }, observerOptions);
 
 document.querySelectorAll('.feature-card, .platform-card, .analysis-card').forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(30px)';
-    el.style.transition = 'all 0.6s ease';
-    observer.observe(el);
+    if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(30px)';
+        el.style.transition = 'all 0.6s ease';
+        observer.observe(el);
+    }
 });
 
 // ============= PAGE LOAD ANIMATION =============
@@ -431,7 +462,7 @@ initAnimatedName();
 renderHistory();
 checkAuthStatus();
 
-// Expose functions globally if needed
+// Expose functions globally
 window.analyzeVideo = analyzeVideo;
 window.startDownload = startDownload;
 window.clearHistory = clearHistory;
