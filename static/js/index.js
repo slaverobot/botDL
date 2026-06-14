@@ -75,6 +75,20 @@ const timeRemaining = document.getElementById('timeRemaining');
 const historyList = document.getElementById('historyList');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
+// ============= USER MENU DROPDOWN =============
+const userMenu = document.querySelector('.user-menu');
+if (userMenu) {
+    userMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        userMenu.classList.toggle('active');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        userMenu.classList.remove('active');
+    });
+}
+
 // ============= TOAST FUNCTIONS =============
 function showToast(message, isError = false) {
     const container = document.getElementById('toastContainer');
@@ -84,6 +98,21 @@ function showToast(message, isError = false) {
     toast.innerHTML = `<span>${isError ? '⚠️ ' : '✅ '}${message}</span>`;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
+}
+
+// ============= CHECK AUTH STATUS =============
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+            const user = await response.json();
+            console.log('User logged in:', user.email);
+            return true;
+        }
+    } catch (error) {
+        console.log('User not logged in');
+    }
+    return false;
 }
 
 // ============= RENDER QUALITIES (Premium Style) =============
@@ -390,9 +419,17 @@ document.querySelectorAll('.feature-card, .platform-card, .analysis-card').forEa
     observer.observe(el);
 });
 
+// ============= PAGE LOAD ANIMATION =============
+document.body.style.opacity = '0';
+document.body.style.transition = 'opacity 0.5s ease';
+window.addEventListener('load', () => {
+    document.body.style.opacity = '1';
+});
+
 // ============= INITIALIZATION =============
 initAnimatedName();
 renderHistory();
+checkAuthStatus();
 
 // Expose functions globally if needed
 window.analyzeVideo = analyzeVideo;
