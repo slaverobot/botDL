@@ -11,70 +11,65 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 CORS(app)
 
-# ============ SUPABASE DATABASE SETUP (PostgreSQL) ============
+# ============ DATABASE SETUP (SUPABASE) ============
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 def get_db_connection():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        return conn
+        return psycopg2.connect(DATABASE_URL)
     except Exception as e:
         print(f"Database connection error: {e}")
         return None
 
 def init_db():
-    """Create tables if they don't exist"""
     conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        # Users table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                name TEXT NOT NULL,
-                picture TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                is_premium BOOLEAN DEFAULT FALSE,
-                is_admin BOOLEAN DEFAULT FALSE
-            )
-        ''')
-        # Downloads history table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS downloads (
-                id SERIAL PRIMARY KEY,
-                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-                video_url TEXT NOT NULL,
-                video_title TEXT,
-                video_thumbnail TEXT,
-                video_quality TEXT,
-                download_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        ''')
-        # Favorites table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS favorites (
-                id SERIAL PRIMARY KEY,
-                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-                video_url TEXT NOT NULL,
-                video_title TEXT,
-                video_thumbnail TEXT,
-                added_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        ''')
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("✅ Database tables ready!")
-    else:
+    if not conn:
         print("❌ Database connection failed!")
+        return
+    
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            picture TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            is_premium BOOLEAN DEFAULT FALSE,
+            is_admin BOOLEAN DEFAULT FALSE
+        )
+    ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS downloads (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+            video_url TEXT NOT NULL,
+            video_title TEXT,
+            video_thumbnail TEXT,
+            video_quality TEXT,
+            download_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+            video_url TEXT NOT NULL,
+            video_title TEXT,
+            video_thumbnail TEXT,
+            added_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("✅ Database tables ready!")
 
 # ============ LOGIN MANAGER ============
 login_manager = LoginManager()
@@ -93,15 +88,18 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db_connection()
-    if conn:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-        user = cur.fetchone()
-        cur.close()
-        conn.close()
-        if user:
-            return User(user['id'], user['email'], user['name'], user['picture'], 
-                       user.get('is_premium', False), user.get('is_admin', False))
+    if not conn:
+        return None
+    
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if user:
+        return User(user['id'], user['email'], user['name'], user['picture'],
+                   user.get('is_premium', False), user.get('is_admin', False))
     return None
 
 # ============ OAUTH SETUP ============
@@ -113,7 +111,7 @@ google = oauth.register(
     access_token_url='https://oauth2.googleapis.com/token',
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     api_base_url='https://www.googleapis.com/oauth2/v1/',
-    userinfo_endpoint='https://www.googleapis.com/oauth2/v1/userinfo',  # Angalia: quotes zimeondolewa na URL ni sahihi
+    userinfo_endpoint='https://www.googleapis.com/oauth2/v1/userinfo',
     client_kwargs={'scope': 'openid email profile'},
     jwks_uri='https://www.googleapis.com/oauth2/v3/certs'
 )
@@ -127,14 +125,14 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # ============ HELPER FUNCTIONS ============
 def get_platform(url):
-    url_lower = url.lower()
-    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+    u = url.lower()
+    if "youtube.com" in u or "youtu.be" in u:
         return "YouTube"
-    elif "tiktok.com" in url_lower:
+    elif "tiktok.com" in u:
         return "TikTok"
-    elif "instagram.com" in url_lower:
+    elif "instagram.com" in u:
         return "Instagram"
-    elif "facebook.com" in url_lower or "fb.watch" in url_lower:
+    elif "facebook.com" in u or "fb.watch" in u:
         return "Facebook"
     return "Unknown"
 
@@ -157,8 +155,14 @@ def login():
 def google_auth():
     try:
         token = google.authorize_access_token()
-        userinfo = google.get('userinfo')
-        user_info = userinfo.json()
+        if not token:
+            return redirect(url_for('index'))
+        
+        resp = google.get('userinfo')
+        if not resp or resp.status != 200:
+            return redirect(url_for('index'))
+        
+        user_info = resp.json()
         
         conn = get_db_connection()
         if conn:
@@ -166,9 +170,7 @@ def google_auth():
             cur.execute("""
                 INSERT INTO users (id, email, name, picture) 
                 VALUES (%s, %s, %s, %s) 
-                ON CONFLICT (id) DO UPDATE SET 
-                    name = EXCLUDED.name, 
-                    picture = EXCLUDED.picture
+                ON CONFLICT (id) DO NOTHING
             """, (user_info['id'], user_info['email'], user_info['name'], user_info.get('picture', '')))
             conn.commit()
             cur.close()
@@ -198,7 +200,7 @@ def get_user():
         'email': current_user.email,
         'name': current_user.name,
         'picture': current_user.picture,
-        'is_premium': current_user.is_premium
+        'is_premium': getattr(current_user, 'is_premium', False)
     })
 
 # ============ MAIN ROUTES ============
@@ -215,6 +217,7 @@ def dashboard():
     favorites = []
     history_count = 0
     favorites_count = 0
+    member_since = "New"
     
     if conn:
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -225,13 +228,6 @@ def dashboard():
         cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
         history_count = cur.fetchone()['count']
         favorites_count = len(favorites)
-        cur.close()
-        conn.close()
-    
-    member_since = "New"
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
         user_data = cur.fetchone()
         if user_data and user_data['created_at']:
@@ -336,9 +332,7 @@ def analyze():
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        'headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     }
     
     try:
@@ -366,7 +360,6 @@ def analyze():
         formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 999)
         formats.append({'format_id': 'bestaudio/best', 'label': 'MP3', 'ext': 'mp3'})
         
-        # Save to history if user logged in
         if current_user.is_authenticated:
             conn = get_db_connection()
             if conn:
@@ -448,6 +441,7 @@ def download():
 with app.app_context():
     init_db()
 
+# ============ RUN APP ============
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     print("=" * 55)
