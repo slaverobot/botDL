@@ -15,24 +15,28 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
-CORS(app)
 
-# ============ DATABASE SETUP (SUPABASE) ============
+# CORS configuration - Fixed
+CORS(app, supports_credentials=True, origins=[
+    'https://botdl-3qgc.onrender.com',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000'
+])
+
+# ============ DATABASE SETUP ============
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 def get_db_connection():
     try:
         return psycopg2.connect(DATABASE_URL)
     except Exception as e:
-        print(f"Database connection error: {e}")
+        print(f"Database error: {e}")
         return None
 
 def init_db():
     conn = get_db_connection()
     if not conn:
-        print("❌ Database connection failed!")
         return
-    
     cur = conn.cursor()
     cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -40,36 +44,23 @@ def init_db():
             email TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
             picture TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            is_premium BOOLEAN DEFAULT FALSE,
-            is_admin BOOLEAN DEFAULT FALSE
+            created_at TIMESTAMP DEFAULT NOW()
         )
     ''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS downloads (
             id SERIAL PRIMARY KEY,
-            user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-            video_url TEXT NOT NULL,
+            user_id TEXT REFERENCES users(id),
+            video_url TEXT,
             video_title TEXT,
             video_thumbnail TEXT,
-            video_quality TEXT,
-            download_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    ''')
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS favorites (
-            id SERIAL PRIMARY KEY,
-            user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-            video_url TEXT NOT NULL,
-            video_title TEXT,
-            video_thumbnail TEXT,
-            added_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            download_date TIMESTAMP DEFAULT NOW()
         )
     ''')
     conn.commit()
     cur.close()
     conn.close()
-    print("✅ Database tables ready!")
+    print("✅ Database ready")
 
 # ============ LOGIN MANAGER ============
 login_manager = LoginManager()
@@ -77,29 +68,24 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 class User(UserMixin):
-    def __init__(self, id, email, name, picture, is_premium=False, is_admin=False):
+    def __init__(self, id, email, name, picture):
         self.id = id
         self.email = email
         self.name = name
         self.picture = picture
-        self.is_premium = is_premium
-        self.is_admin = is_admin
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db_connection()
     if not conn:
         return None
-    
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     cur.close()
     conn.close()
-    
     if user:
-        return User(user['id'], user['email'], user['name'], user['picture'],
-                   user.get('is_premium', False), user.get('is_admin', False))
+        return User(user['id'], user['email'], user['name'], user['picture'])
     return None
 
 # ============ OAUTH SETUP ============
@@ -108,42 +94,28 @@ google = oauth.register(
     name='google',
     client_id=os.getenv('GOOGLE_CLIENT_ID'),
     client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    access_token_url='https://oauth2.googleapis.com/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth',
-    api_base_url='https://www.googleapis.com/oauth2/v1/',
-    userinfo_endpoint='https://www.googleapis.com/oauth2/v1/userinfo',
-    client_kwargs={'scope': 'openid email profile'},
-    jwks_uri='https://www.googleapis.com/oauth2/v3/certs'
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
 )
 
-# ============ DOWNLOAD DIRECTORY ============
-if os.environ.get('RENDER'):
-    DOWNLOAD_DIR = '/tmp/downloads'
-else:
-    DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
+# ============ DOWNLOAD DIR ============
+DOWNLOAD_DIR = '/tmp/downloads' if os.environ.get('RENDER') else os.path.join(os.path.dirname(__file__), 'downloads')
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# ============ HELPER FUNCTIONS ============
+# ============ HELPERS ============
 def get_platform(url):
     u = url.lower()
-    if "youtube.com" in u or "youtu.be" in u:
-        return "YouTube"
-    elif "tiktok.com" in u:
-        return "TikTok"
-    elif "instagram.com" in u:
-        return "Instagram"
-    elif "facebook.com" in u or "fb.watch" in u:
-        return "Facebook"
-    return "Unknown"
+    if 'youtube.com' in u or 'youtu.be' in u: return 'YouTube'
+    if 'tiktok.com' in u: return 'TikTok'
+    if 'instagram.com' in u: return 'Instagram'
+    if 'facebook.com' in u or 'fb.watch' in u: return 'Facebook'
+    return 'Unknown'
 
-def format_duration(seconds):
-    if not seconds:
-        return "00:00"
-    minutes, seconds = divmod(int(seconds), 60)
-    hours, minutes = divmod(minutes, 60)
-    if hours > 0:
-        return f"{hours}:{minutes:02d}:{seconds:02d}"
-    return f"{minutes}:{seconds:02d}"
+def format_duration(sec):
+    if not sec: return '00:00'
+    m, s = divmod(int(sec), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 # ============ AUTH ROUTES ============
 @app.route('/login')
@@ -159,7 +131,7 @@ def google_auth():
             return redirect(url_for('index'))
         
         resp = google.get('userinfo')
-        if not resp or resp.status != 200:
+        if not resp:
             return redirect(url_for('index'))
         
         user_info = resp.json()
@@ -199,141 +171,23 @@ def get_user():
         'id': current_user.id,
         'email': current_user.email,
         'name': current_user.name,
-        'picture': current_user.picture,
-        'is_premium': getattr(current_user, 'is_premium', False)
+        'picture': current_user.picture
     })
 
-# ============ MAIN ROUTES ============
+# ============ MAIN ============
 @app.route('/')
 def index():
     return render_template('index.html', user=current_user if current_user.is_authenticated else None)
 
-# ============ DASHBOARD ROUTES ============
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    conn = get_db_connection()
-    recent_downloads = []
-    favorites = []
-    history_count = 0
-    favorites_count = 0
-    member_since = "New"
-    
-    if conn:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC LIMIT 5", (current_user.id,))
-        recent_downloads = cur.fetchall()
-        cur.execute("SELECT * FROM favorites WHERE user_id = %s", (current_user.id,))
-        favorites = cur.fetchall()
-        cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
-        history_count = cur.fetchone()['count']
-        favorites_count = len(favorites)
-        cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
-        user_data = cur.fetchone()
-        if user_data and user_data['created_at']:
-            member_since = user_data['created_at'].strftime('%b %Y')
-        cur.close()
-        conn.close()
-    
-    return render_template('dashboard/home.html', 
-                         user=current_user, 
-                         recent_downloads=recent_downloads,
-                         history_count=history_count,
-                         favorites_count=favorites_count,
-                         member_since=member_since)
-
-@app.route('/dashboard/history')
-@login_required
-def history_page():
-    conn = get_db_connection()
-    history = []
-    if conn:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC", (current_user.id,))
-        history = cur.fetchall()
-        cur.close()
-        conn.close()
-    return render_template('dashboard/history.html', user=current_user, history=history)
-
-@app.route('/dashboard/favorites')
-@login_required
-def favorites_page():
-    conn = get_db_connection()
-    favorites = []
-    if conn:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM favorites WHERE user_id = %s ORDER BY added_date DESC", (current_user.id,))
-        favorites = cur.fetchall()
-        cur.close()
-        conn.close()
-    return render_template('dashboard/favorites.html', user=current_user, favorites=favorites)
-
-@app.route('/dashboard/profile')
-@login_required
-def profile_page():
-    conn = get_db_connection()
-    history_count = 0
-    favorites_count = 0
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
-        history_count = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM favorites WHERE user_id = %s", (current_user.id,))
-        favorites_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-    return render_template('dashboard/profile.html', 
-                         user=current_user, 
-                         history_count=history_count, 
-                         favorites_count=favorites_count)
-
-# ============ API ROUTES ============
-@app.route('/api/favorite/add', methods=['POST'])
-@login_required
-def add_favorite():
-    data = request.get_json()
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM favorites WHERE user_id = %s AND video_url = %s", (current_user.id, data.get('url')))
-        existing = cur.fetchone()
-        if not existing:
-            cur.execute("""
-                INSERT INTO favorites (user_id, video_url, video_title, video_thumbnail) 
-                VALUES (%s, %s, %s, %s)
-            """, (current_user.id, data.get('url'), data.get('title', 'Unknown'), data.get('thumbnail', '')))
-            conn.commit()
-        cur.close()
-        conn.close()
-    return jsonify({'success': True})
-
-@app.route('/api/favorite/remove', methods=['POST'])
-@login_required
-def remove_favorite():
-    data = request.get_json()
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM favorites WHERE user_id = %s AND video_url = %s", (current_user.id, data.get('url')))
-        conn.commit()
-        cur.close()
-        conn.close()
-    return jsonify({'success': True})
-
-# ============ VIDEO DOWNLOAD ROUTES ============
+# ============ ANALYZE ============
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.get_json()
     url = data.get('url', '').strip()
-    
     if not url:
-        return jsonify({'error': 'No URL provided'}), 400
+        return jsonify({'error': 'No URL'}), 400
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    }
+    ydl_opts = {'quiet': True, 'no_warnings': True, 'headers': {'User-Agent': 'Mozilla/5.0'}}
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -341,113 +195,122 @@ def analyze():
         
         formats = []
         seen = set()
-        quality_map = {144: '144p', 240: '240p', 360: '360p', 480: '480p',
-                       720: '720p', 1080: '1080p', 1440: '2K', 2160: '4K', 4320: '8K'}
+        qmap = {144:'144p',240:'240p',360:'360p',480:'480p',720:'720p',1080:'1080p',1440:'2K',2160:'4K'}
         
         for f in info.get('formats', []):
-            height = f.get('height')
-            acodec = f.get('acodec', 'none')
-            if height and acodec != 'none' and height <= 4320:
-                label = quality_map.get(min(quality_map.keys(), key=lambda x: abs(x - height)), f'{height}p')
+            h = f.get('height')
+            if h and f.get('acodec') != 'none' and h <= 4320:
+                label = qmap.get(min(qmap.keys(), key=lambda x: abs(x-h)), f'{h}p')
                 if label not in seen:
                     seen.add(label)
-                    formats.append({
-                        'format_id': str(f.get('format_id')),
-                        'label': label,
-                        'ext': f.get('ext', 'mp4')
-                    })
+                    formats.append({'format_id': str(f['format_id']), 'label': label, 'ext': f.get('ext', 'mp4')})
         
         formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 999)
         formats.append({'format_id': 'bestaudio/best', 'label': 'MP3', 'ext': 'mp3'})
         
         if current_user.is_authenticated:
-            conn = get_db_connection()
-            if conn:
-                cur = conn.cursor()
-                cur.execute("""
-                    INSERT INTO downloads (user_id, video_url, video_title, video_thumbnail) 
-                    VALUES (%s, %s, %s, %s)
-                """, (current_user.id, url, info.get('title', 'Unknown'), info.get('thumbnail', '')))
-                conn.commit()
-                cur.close()
-                conn.close()
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO downloads (user_id, video_url, video_title, video_thumbnail) VALUES (%s, %s, %s, %s)",
+                               (current_user.id, url, info.get('title'), info.get('thumbnail')))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+            except:
+                pass
         
         return jsonify({
-            'title': info.get('title', 'Unknown'),
-            'thumbnail': info.get('thumbnail', ''),
+            'title': info.get('title'),
+            'thumbnail': info.get('thumbnail'),
             'duration': format_duration(info.get('duration')),
             'platform': get_platform(url),
-            'formats': formats,
-            'url': url
+            'formats': formats
         })
-        
     except Exception as e:
-        return jsonify({'error': str(e)[:150]}), 500
+        return jsonify({'error': str(e)}), 500
 
+# ============ DOWNLOAD ============
 @app.route('/download', methods=['POST'])
 def download():
     data = request.get_json()
-    url = data.get('url', '').strip()
-    format_id = data.get('format_id', '')
+    url = data.get('url')
+    format_id = data.get('format_id')
     title = data.get('title_hint', 'video')
     
     if not url:
-        return jsonify({'error': 'No URL provided'}), 400
+        return jsonify({'error': 'No URL'}), 400
     
-    download_id = str(uuid.uuid4())[:8]
+    vid = str(uuid.uuid4())[:8]
+    output = os.path.join(DOWNLOAD_DIR, f'{vid}.%(ext)s')
+    
     is_audio = format_id == 'bestaudio/best'
     
     try:
-        output_template = os.path.join(DOWNLOAD_DIR, f'{download_id}.%(ext)s')
-        
         if is_audio:
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'outtmpl': output_template,
-                'quiet': True,
-                'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]
-            }
+            opts = {'format': 'bestaudio/best', 'outtmpl': output, 'quiet': True,
+                   'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]}
         else:
-            ydl_opts = {
-                'format': 'best',
-                'outtmpl': output_template,
-                'quiet': True,
-            }
+            opts = {'format': 'best', 'outtmpl': output, 'quiet': True}
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.extract_info(url, download=True)
         
-        for file in os.listdir(DOWNLOAD_DIR):
-            if file.startswith(download_id):
-                downloaded_file = os.path.join(DOWNLOAD_DIR, file)
-                ext = downloaded_file.split('.')[-1]
-                safe_title = re.sub(r'[^\w\s-]', '', title)[:40]
-                response = send_file(downloaded_file, as_attachment=True, download_name=f"{safe_title}.{ext}")
-                
-                @response.call_on_close
-                def cleanup():
-                    try:
-                        os.remove(downloaded_file)
-                    except:
-                        pass
-                return response
+        for f in os.listdir(DOWNLOAD_DIR):
+            if f.startswith(vid):
+                path = os.path.join(DOWNLOAD_DIR, f)
+                ext = f.split('.')[-1]
+                safe = re.sub(r'[^\w\s-]', '', title)[:40].replace(' ', '_')
+                resp = send_file(path, as_attachment=True, download_name=f"{safe}.{ext}")
+                resp.call_on_close(lambda: os.remove(path))
+                return resp
         
         return jsonify({'error': 'Download failed'}), 500
-        
     except Exception as e:
-        return jsonify({'error': str(e)[:150]}), 500
+        return jsonify({'error': str(e)}), 500
 
-# ============ INITIALIZE DATABASE ============
+# ============ DASHBOARD ============
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard/home.html', user=current_user)
+
+@app.route('/dashboard/history')
+@login_required
+def history_page():
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC", (current_user.id,))
+            history = cur.fetchall()
+            cur.close()
+            conn.close()
+            return render_template('dashboard/history.html', user=current_user, history=history)
+    except:
+        pass
+    return render_template('dashboard/history.html', user=current_user, history=[])
+
+@app.route('/dashboard/favorites')
+@login_required
+def favorites_page():
+    return render_template('dashboard/favorites.html', user=current_user)
+
+@app.route('/dashboard/profile')
+@login_required
+def profile_page():
+    return render_template('dashboard/profile.html', user=current_user)
+
+# ============ INIT ============
 with app.app_context():
     init_db()
 
-# ============ RUN APP ============
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader with Supabase")
+    print("🎬 botDL - Video Downloader")
     print("📍 Server: http://127.0.0.1:5000")
     print("🔐 Google Authentication Enabled")
-    print("🐘 Database: Supabase PostgreSQL")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
