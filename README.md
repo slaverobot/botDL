@@ -1,4 +1,4 @@
-# 🌀 VortexDL — Social Media Video Downloader
+# 🌀 botDL — Social Media Video Downloader
 
 A modern, premium web application for downloading videos from YouTube, TikTok, Instagram, Facebook, and more.
 
