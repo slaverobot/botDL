@@ -113,7 +113,7 @@ google = oauth.register(
     access_token_url='https://oauth2.googleapis.com/token',
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     api_base_url='https://www.googleapis.com/oauth2/v1/',
-    userinfo_endpoint='https://www.googleapis.com/oauth2/v1/userinfo',
+    userinfo_endpoint='https://www.googleapis.com/oauth2/v1/userinfo',  # Angalia: quotes zimeondolewa na URL ni sahihi
     client_kwargs={'scope': 'openid email profile'},
     jwks_uri='https://www.googleapis.com/oauth2/v3/certs'
 )
