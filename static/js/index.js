@@ -126,14 +126,13 @@ function updateUIForLoggedOutUser() {
 // ============= CHECK AUTH STATUS =============
 async function checkAuthStatus() {
     try {
-        const response = await fetch('/api/user');
+        const response = await fetch('/api/user', { credentials: 'include' });
         if (response.ok) {
             const user = await response.json();
             console.log('User logged in:', user.email);
             updateUIForLoggedInUser(user);
             return true;
         } else {
-            console.log('User not logged in');
             updateUIForLoggedOutUser();
             return false;
         }
@@ -148,22 +147,22 @@ async function checkAuthStatus() {
 function renderQualities(formats) {
     if (!qualityGrid) return;
     qualityGrid.innerHTML = '';
-    
+
     const qualityGroups = [
         { label: '🎵 Audio', qualities: ['MP3'] },
         { label: '📱 SD', qualities: ['144p', '240p', '360p', '480p'] },
         { label: '🎬 HD', qualities: ['720p', '1080p'] },
         { label: '✨ Ultra HD', qualities: ['2K', '4K', '8K'] }
     ];
-    
+
     qualityGroups.forEach(group => {
         group.qualities.forEach(quality => {
-            let found = formats.find(f => f.label.includes(quality));
+            const found = formats.find(f => f.label === quality);
             const div = document.createElement('div');
             div.className = 'quality-option';
             div.innerHTML = `<span>${quality}</span>`;
-            
-            if (!found || found.unavailable) {
+
+            if (!found) {
                 div.style.opacity = '0.4';
                 div.style.cursor = 'not-allowed';
                 div.onclick = () => showToast(`${quality} not available for this video`, true);
@@ -174,11 +173,18 @@ function renderQualities(formats) {
                     selectedFormat = found;
                     showToast(`${quality} selected`, false);
                 };
+                // Auto-select 1080p if available, otherwise first available format
                 if (!selectedFormat && quality === '1080p') div.click();
             }
             qualityGrid.appendChild(div);
         });
     });
+
+    // If nothing was auto-selected (no 1080p), select the first available format
+    if (!selectedFormat) {
+        const firstAvailable = qualityGrid.querySelector('.quality-option:not([style*="not-allowed"])');
+        if (firstAvailable) firstAvailable.click();
+    }
 }
 
 // ============= ANALYZE VIDEO =============
@@ -186,62 +192,67 @@ async function analyzeVideo() {
     const url = urlInput?.value.trim();
     if (!url) {
         showToast('Please paste a video URL', true);
-        urlInput.style.borderColor = '#ff4444';
-        setTimeout(() => urlInput.style.borderColor = '', 2000);
+        if (urlInput) {
+            urlInput.style.borderColor = '#ff4444';
+            setTimeout(() => urlInput.style.borderColor = '', 2000);
+        }
         return;
     }
-    
+
     urlInput.style.borderColor = '';
     skeleton?.classList.add('active');
     if (videoPreview) videoPreview.style.display = 'none';
     if (qualitySection) qualitySection.style.display = 'none';
     if (downloadSection) downloadSection.style.display = 'none';
-    
+    selectedFormat = null; // reset previous selection
+
     if (analyzeBtn) {
         analyzeBtn.classList.add('loading');
         analyzeBtn.disabled = true;
     }
-    
+
     let detectedPlatform = 'video';
     if (url.includes('tiktok')) detectedPlatform = 'TikTok';
     else if (url.includes('instagram')) detectedPlatform = 'Instagram';
-    else if (url.includes('facebook')) detectedPlatform = 'Facebook';
-    else if (url.includes('youtube')) detectedPlatform = 'YouTube';
+    else if (url.includes('facebook') || url.includes('fb.watch')) detectedPlatform = 'Facebook';
+    else if (url.includes('youtube') || url.includes('youtu.be')) detectedPlatform = 'YouTube';
     else if (url.includes('twitter') || url.includes('x.com')) detectedPlatform = 'Twitter';
-    
+    else if (url.includes('vimeo')) detectedPlatform = 'Vimeo';
+
     showToast(`🔍 Analyzing ${detectedPlatform} video...`, false);
-    
+
     try {
         const response = await fetch('/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ url })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to analyze video');
         }
-        
+
         const data = await response.json();
-        currentVideoData = data;
-        
+        currentVideoData = data; // data.url is now included from the server
+
         if (thumbnail) thumbnail.src = data.thumbnail || 'https://placehold.co/160x90/1a1a2a/ffffff?text=No+Image';
         if (title) title.textContent = data.title || 'Unknown Title';
         if (platform) platform.textContent = data.platform || 'Unknown';
         if (duration) duration.textContent = data.duration || '--:--';
         if (uploader) uploader.textContent = data.uploader || 'Unknown';
         if (views) views.textContent = data.view_count ? `${data.view_count.toLocaleString()} views` : '— views';
-        
+
         renderQualities(data.formats || []);
-        
+
         if (skeleton) skeleton.classList.remove('active');
         if (videoPreview) videoPreview.style.display = 'block';
         if (qualitySection) qualitySection.style.display = 'block';
         if (downloadSection) downloadSection.style.display = 'block';
-        
+
         showToast(`✓ ${data.platform} video ready for download!`, false);
-        
+
     } catch (error) {
         if (skeleton) skeleton.classList.remove('active');
         showToast(error.message, true);
@@ -259,7 +270,13 @@ async function startDownload() {
         showToast('Please select a quality first', true);
         return;
     }
-    
+
+    // currentVideoData.url is set by /analyze — this was the bug (it was undefined before)
+    if (!currentVideoData.url) {
+        showToast('Video URL missing. Please analyze the video again.', true);
+        return;
+    }
+
     if (downloadBtn) downloadBtn.disabled = true;
     if (progressContainer) progressContainer.classList.add('active');
     if (progressFill) progressFill.style.width = '0%';
@@ -267,72 +284,73 @@ async function startDownload() {
     if (progressLabel) progressLabel.textContent = 'Connecting...';
     if (downloadSpeed) downloadSpeed.textContent = '— MB/s';
     if (timeRemaining) timeRemaining.textContent = '— remaining';
-    
+
     let progress = 0;
-    let startTime = Date.now();
-    
+    const startTime = Date.now();
+
     const interval = setInterval(() => {
         if (progress < 90) {
             progress += Math.random() * 8;
             if (progress > 90) progress = 90;
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressPercent) progressPercent.textContent = `${Math.floor(progress)}%`;
-            
+
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = (progress * 0.5) / elapsed;
             if (downloadSpeed && speed > 0) downloadSpeed.textContent = `${speed.toFixed(1)} MB/s`;
             if (timeRemaining && progress > 0) {
                 const remaining = ((100 - progress) * elapsed) / progress;
-                if (remaining < 60) {
-                    timeRemaining.textContent = `${Math.ceil(remaining)} sec remaining`;
-                } else {
-                    timeRemaining.textContent = `${Math.ceil(remaining / 60)} min remaining`;
-                }
+                timeRemaining.textContent = remaining < 60
+                    ? `${Math.ceil(remaining)} sec remaining`
+                    : `${Math.ceil(remaining / 60)} min remaining`;
             }
         }
         if (progressLabel && progress < 50) progressLabel.textContent = 'Downloading...';
     }, 300);
-    
+
     try {
         const response = await fetch('/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
-                url: currentVideoData.url,
+                url: currentVideoData.url,           // now correctly populated
                 format_id: selectedFormat.format_id,
                 title_hint: currentVideoData.title
             })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Download failed');
         }
-        
+
         const blob = await response.blob();
         const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `${currentVideoData.title.substring(0, 50)}.${selectedFormat.ext || 'mp4'}`;
+        a.download = `${(currentVideoData.title || 'video').substring(0, 50)}.${selectedFormat.ext || 'mp4'}`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(downloadUrl);
-        
+
         clearInterval(interval);
         if (progressFill) progressFill.style.width = '100%';
         if (progressPercent) progressPercent.textContent = '100%';
         if (progressLabel) progressLabel.textContent = 'Complete!';
         if (downloadSpeed) downloadSpeed.textContent = '✓ Done';
         if (timeRemaining) timeRemaining.textContent = '';
-        
+
         addToHistory(currentVideoData.title, currentVideoData.thumbnail, selectedFormat.label);
         showToast('✓ Download complete!');
-        
+
         setTimeout(() => {
             if (progressContainer) progressContainer.classList.remove('active');
             if (progressFill) progressFill.style.width = '0%';
             if (progressPercent) progressPercent.textContent = '0%';
         }, 2000);
-        
+
     } catch (error) {
         clearInterval(interval);
         showToast(error.message, true);
@@ -347,7 +365,7 @@ async function startDownload() {
 function addToHistory(videoTitle, thumbnailUrl, quality) {
     downloadHistory.unshift({
         id: Date.now(),
-        title: videoTitle.substring(0, 40),
+        title: (videoTitle || 'Unknown').substring(0, 40),
         thumbnail: thumbnailUrl,
         quality: quality,
         timestamp: new Date().toLocaleString()
@@ -365,7 +383,8 @@ function renderHistory() {
     }
     historyList.innerHTML = downloadHistory.map(item => `
         <div class="history-item">
-            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'}" onerror="this.src='https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'">
+            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'}"
+                 onerror="this.src='https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'">
             <div class="history-info">
                 <div class="history-title">${escapeHtml(item.title)}</div>
                 <div class="history-meta">${item.timestamp}</div>
@@ -384,7 +403,9 @@ function clearHistory() {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
+    return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
 }
 
 // ============= CLOSE PREVIEW =============
@@ -406,10 +427,10 @@ if (pasteBtn) {
             const text = await navigator.clipboard.readText();
             if (urlInput) urlInput.value = text;
             showToast('Link pasted! Ready to analyze', false);
-            if (urlInput) urlInput.style.borderColor = '#00ff44';
-            setTimeout(() => {
-                if (urlInput) urlInput.style.borderColor = '';
-            }, 1000);
+            if (urlInput) {
+                urlInput.style.borderColor = '#00ff44';
+                setTimeout(() => urlInput.style.borderColor = '', 1000);
+            }
         } catch {
             showToast('Cannot paste. Please copy the link first', true);
         }
@@ -423,7 +444,7 @@ if (urlInput) urlInput.addEventListener('keypress', e => e.key === 'Enter' && an
 
 // Smooth scroll for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
+    anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) target.scrollIntoView({ behavior: 'smooth' });
