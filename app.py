@@ -16,7 +16,13 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 
-# CORS configuration - Fixed
+# ============ SESSION / COOKIE CONFIG ============
+# Required for OAuth state cookie to survive on HTTPS (Render)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER'))
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+# ============ CORS ============
 CORS(app, supports_credentials=True, origins=[
     'https://botdl-3qgc.onrender.com',
     'http://localhost:5000',
@@ -109,6 +115,8 @@ def get_platform(url):
     if 'tiktok.com' in u: return 'TikTok'
     if 'instagram.com' in u: return 'Instagram'
     if 'facebook.com' in u or 'fb.watch' in u: return 'Facebook'
+    if 'twitter.com' in u or 'x.com' in u: return 'Twitter'
+    if 'vimeo.com' in u: return 'Vimeo'
     return 'Unknown'
 
 def format_duration(sec):
@@ -128,33 +136,50 @@ def google_auth():
     try:
         token = google.authorize_access_token()
         if not token:
+            print("Auth error: no token received")
             return redirect(url_for('index'))
-        
-        resp = google.get('userinfo')
-        if not resp:
+
+        # Authlib parses the id_token automatically into token['userinfo']
+        # when scope includes 'openid'. Fall back to userinfo endpoint if missing.
+        user_info = token.get('userinfo')
+        if not user_info:
+            resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
+            user_info = resp.json()
+
+        # Google OpenID Connect uses 'sub' as the unique user identifier, not 'id'
+        user_id = user_info.get('sub')
+        if not user_id:
+            print("Auth error: no 'sub' field in user_info")
             return redirect(url_for('index'))
-        
-        user_info = resp.json()
-        
+
+        user_email = user_info.get('email', '')
+        user_name = user_info.get('name', user_email)
+        user_picture = user_info.get('picture', '')
+
         conn = get_db_connection()
         if conn:
             cur = conn.cursor()
+            # ON CONFLICT DO UPDATE so name/picture stay fresh on every login
             cur.execute("""
-                INSERT INTO users (id, email, name, picture) 
-                VALUES (%s, %s, %s, %s) 
-                ON CONFLICT (id) DO NOTHING
-            """, (user_info['id'], user_info['email'], user_info['name'], user_info.get('picture', '')))
+                INSERT INTO users (id, email, name, picture)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    picture = EXCLUDED.picture
+            """, (user_id, user_email, user_name, user_picture))
             conn.commit()
             cur.close()
             conn.close()
-        
-        user = User(user_info['id'], user_info['email'], user_info['name'], user_info.get('picture', ''))
+
+        user = User(user_id, user_email, user_name, user_picture)
         login_user(user)
-        session['user_id'] = user_info['id']
+        session['user_id'] = user_id
         return redirect(url_for('index'))
-        
+
     except Exception as e:
+        import traceback
         print(f"Auth error: {e}")
+        traceback.print_exc()
         return redirect(url_for('index'))
 
 @app.route('/logout')
@@ -185,49 +210,66 @@ def analyze():
     data = request.get_json()
     url = data.get('url', '').strip()
     if not url:
-        return jsonify({'error': 'No URL'}), 400
-    
-    ydl_opts = {'quiet': True, 'no_warnings': True, 'headers': {'User-Agent': 'Mozilla/5.0'}}
-    
+        return jsonify({'error': 'No URL provided'}), 400
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'headers': {'User-Agent': 'Mozilla/5.0'}
+    }
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-        
+
         formats = []
         seen = set()
-        qmap = {144:'144p',240:'240p',360:'360p',480:'480p',720:'720p',1080:'1080p',1440:'2K',2160:'4K'}
-        
+        qmap = {
+            144: '144p', 240: '240p', 360: '360p', 480: '480p',
+            720: '720p', 1080: '1080p', 1440: '2K', 2160: '4K'
+        }
+
         for f in info.get('formats', []):
             h = f.get('height')
             if h and f.get('acodec') != 'none' and h <= 4320:
-                label = qmap.get(min(qmap.keys(), key=lambda x: abs(x-h)), f'{h}p')
+                label = qmap.get(min(qmap.keys(), key=lambda x: abs(x - h)), f'{h}p')
                 if label not in seen:
                     seen.add(label)
-                    formats.append({'format_id': str(f['format_id']), 'label': label, 'ext': f.get('ext', 'mp4')})
-        
+                    formats.append({
+                        'format_id': str(f['format_id']),
+                        'label': label,
+                        'ext': f.get('ext', 'mp4')
+                    })
+
         formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 999)
         formats.append({'format_id': 'bestaudio/best', 'label': 'MP3', 'ext': 'mp3'})
-        
+
         if current_user.is_authenticated:
             try:
                 conn = get_db_connection()
                 if conn:
                     cur = conn.cursor()
-                    cur.execute("INSERT INTO downloads (user_id, video_url, video_title, video_thumbnail) VALUES (%s, %s, %s, %s)",
-                               (current_user.id, url, info.get('title'), info.get('thumbnail')))
+                    cur.execute(
+                        "INSERT INTO downloads (user_id, video_url, video_title, video_thumbnail) VALUES (%s, %s, %s, %s)",
+                        (current_user.id, url, info.get('title'), info.get('thumbnail'))
+                    )
                     conn.commit()
                     cur.close()
                     conn.close()
-            except:
-                pass
-        
+            except Exception as db_err:
+                print(f"DB insert error: {db_err}")
+
         return jsonify({
+            'url': url,                              # REQUIRED: JS uses this for /download
             'title': info.get('title'),
             'thumbnail': info.get('thumbnail'),
             'duration': format_duration(info.get('duration')),
             'platform': get_platform(url),
+            'uploader': info.get('uploader'),
+            'view_count': info.get('view_count'),
             'formats': formats
         })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -238,25 +280,32 @@ def download():
     url = data.get('url')
     format_id = data.get('format_id')
     title = data.get('title_hint', 'video')
-    
+
     if not url:
-        return jsonify({'error': 'No URL'}), 400
-    
+        return jsonify({'error': 'No URL provided'}), 400
+
     vid = str(uuid.uuid4())[:8]
     output = os.path.join(DOWNLOAD_DIR, f'{vid}.%(ext)s')
-    
     is_audio = format_id == 'bestaudio/best'
-    
+
     try:
         if is_audio:
-            opts = {'format': 'bestaudio/best', 'outtmpl': output, 'quiet': True,
-                   'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]}
+            opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': output,
+                'quiet': True,
+                'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]
+            }
         else:
-            opts = {'format': 'best', 'outtmpl': output, 'quiet': True}
-        
+            opts = {
+                'format': 'best',
+                'outtmpl': output,
+                'quiet': True
+            }
+
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.extract_info(url, download=True)
-        
+
         for f in os.listdir(DOWNLOAD_DIR):
             if f.startswith(vid):
                 path = os.path.join(DOWNLOAD_DIR, f)
@@ -265,8 +314,9 @@ def download():
                 resp = send_file(path, as_attachment=True, download_name=f"{safe}.{ext}")
                 resp.call_on_close(lambda: os.remove(path))
                 return resp
-        
-        return jsonify({'error': 'Download failed'}), 500
+
+        return jsonify({'error': 'Downloaded file not found'}), 500
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -283,13 +333,16 @@ def history_page():
         conn = get_db_connection()
         if conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC", (current_user.id,))
+            cur.execute(
+                "SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC",
+                (current_user.id,)
+            )
             history = cur.fetchall()
             cur.close()
             conn.close()
             return render_template('dashboard/history.html', user=current_user, history=history)
-    except:
-        pass
+    except Exception as e:
+        print(f"History error: {e}")
     return render_template('dashboard/history.html', user=current_user, history=[])
 
 @app.route('/dashboard/favorites')
@@ -310,7 +363,7 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
     print("🎬 botDL - Video Downloader")
-    print("📍 Server: http://127.0.0.1:5000")
+    print(f"📍 Server: http://127.0.0.1:{port}")
     print("🔐 Google Authentication Enabled")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
