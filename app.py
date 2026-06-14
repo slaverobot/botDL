@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 import yt_dlp
@@ -9,6 +8,8 @@ import os
 import re
 import uuid
 from datetime import datetime
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Load environment variables
 load_dotenv()
@@ -17,25 +18,94 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 CORS(app)
 
-# ============ DATABASE SETUP ============
-if os.environ.get('RENDER'):
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-else:
-    DATABASE_URL = 'sqlite:///botdl.db'
+# ============ SUPABASE DATABASE SETUP (PostgreSQL) ============
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return None
+
+def init_db():
+    """Create tables if they don't exist"""
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor()
+        # Users table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                picture TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                is_premium BOOLEAN DEFAULT FALSE,
+                is_admin BOOLEAN DEFAULT FALSE
+            )
+        ''')
+        # Downloads history table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS downloads (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                video_url TEXT NOT NULL,
+                video_title TEXT,
+                video_thumbnail TEXT,
+                video_quality TEXT,
+                download_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        ''')
+        # Favorites table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS favorites (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                video_url TEXT NOT NULL,
+                video_title TEXT,
+                video_thumbnail TEXT,
+                added_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Database tables ready!")
+    else:
+        print("❌ Database connection failed!")
 
 # ============ LOGIN MANAGER ============
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# ============ OAUTH SETUP - FIXED ============
-oauth = OAuth(app)
+class User(UserMixin):
+    def __init__(self, id, email, name, picture, is_premium=False, is_admin=False):
+        self.id = id
+        self.email = email
+        self.name = name
+        self.picture = picture
+        self.is_premium = is_premium
+        self.is_admin = is_admin
 
-# Google OAuth with FULL configuration
+@login_manager.user_loader
+def load_user(user_id):
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        if user:
+            return User(user['id'], user['email'], user['name'], user['picture'], 
+                       user.get('is_premium', False), user.get('is_admin', False))
+    return None
+
+# ============ OAUTH SETUP ============
+oauth = OAuth(app)
 google = oauth.register(
     name='google',
     client_id=os.getenv('GOOGLE_CLIENT_ID'),
@@ -47,37 +117,6 @@ google = oauth.register(
     client_kwargs={'scope': 'openid email profile'},
     jwks_uri='https://www.googleapis.com/oauth2/v3/certs'
 )
-
-# ============ MODELS ============
-class User(UserMixin, db.Model):
-    id = db.Column(db.String(100), primary_key=True)
-    email = db.Column(db.String(200), unique=True, nullable=False)
-    name = db.Column(db.String(200))
-    picture = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_premium = db.Column(db.Boolean, default=False)
-    is_admin = db.Column(db.Boolean, default=False)
-
-class DownloadHistory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(100), db.ForeignKey('user.id'))
-    video_url = db.Column(db.String(500))
-    video_title = db.Column(db.String(500))
-    video_thumbnail = db.Column(db.String(500))
-    video_quality = db.Column(db.String(50))
-    download_date = db.Column(db.DateTime, default=datetime.utcnow)
-
-class Favorite(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(100), db.ForeignKey('user.id'))
-    video_url = db.Column(db.String(500))
-    video_title = db.Column(db.String(500))
-    video_thumbnail = db.Column(db.String(500))
-    added_date = db.Column(db.DateTime, default=datetime.utcnow)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(user_id)
 
 # ============ DOWNLOAD DIRECTORY ============
 if os.environ.get('RENDER'):
@@ -117,27 +156,27 @@ def login():
 @app.route('/google-auth')
 def google_auth():
     try:
-        # Get token
         token = google.authorize_access_token()
-        
-        # Get user info using the token
         userinfo = google.get('userinfo')
         user_info = userinfo.json()
         
-        # Check if user exists
-        user = User.query.get(user_info['id'])
-        if not user:
-            user = User(
-                id=user_info['id'],
-                email=user_info['email'],
-                name=user_info.get('name', 'User'),
-                picture=user_info.get('picture', '')
-            )
-            db.session.add(user)
-            db.session.commit()
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO users (id, email, name, picture) 
+                VALUES (%s, %s, %s, %s) 
+                ON CONFLICT (id) DO UPDATE SET 
+                    name = EXCLUDED.name, 
+                    picture = EXCLUDED.picture
+            """, (user_info['id'], user_info['email'], user_info['name'], user_info.get('picture', '')))
+            conn.commit()
+            cur.close()
+            conn.close()
         
+        user = User(user_info['id'], user_info['email'], user_info['name'], user_info.get('picture', ''))
         login_user(user)
-        session['user_id'] = user.id
+        session['user_id'] = user_info['id']
         return redirect(url_for('index'))
         
     except Exception as e:
@@ -171,15 +210,38 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    history = DownloadHistory.query.filter_by(user_id=current_user.id).order_by(DownloadHistory.download_date.desc()).limit(5).all()
-    favorites = Favorite.query.filter_by(user_id=current_user.id).all()
-    history_count = DownloadHistory.query.filter_by(user_id=current_user.id).count()
-    favorites_count = len(favorites)
-    member_since = current_user.created_at.strftime('%b %Y')
+    conn = get_db_connection()
+    recent_downloads = []
+    favorites = []
+    history_count = 0
+    favorites_count = 0
+    
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC LIMIT 5", (current_user.id,))
+        recent_downloads = cur.fetchall()
+        cur.execute("SELECT * FROM favorites WHERE user_id = %s", (current_user.id,))
+        favorites = cur.fetchall()
+        cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
+        history_count = cur.fetchone()['count']
+        favorites_count = len(favorites)
+        cur.close()
+        conn.close()
+    
+    member_since = "New"
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
+        user_data = cur.fetchone()
+        if user_data and user_data['created_at']:
+            member_since = user_data['created_at'].strftime('%b %Y')
+        cur.close()
+        conn.close()
     
     return render_template('dashboard/home.html', 
                          user=current_user, 
-                         recent_downloads=history,
+                         recent_downloads=recent_downloads,
                          history_count=history_count,
                          favorites_count=favorites_count,
                          member_since=member_since)
@@ -187,20 +249,43 @@ def dashboard():
 @app.route('/dashboard/history')
 @login_required
 def history_page():
-    history = DownloadHistory.query.filter_by(user_id=current_user.id).order_by(DownloadHistory.download_date.desc()).all()
+    conn = get_db_connection()
+    history = []
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC", (current_user.id,))
+        history = cur.fetchall()
+        cur.close()
+        conn.close()
     return render_template('dashboard/history.html', user=current_user, history=history)
 
 @app.route('/dashboard/favorites')
 @login_required
 def favorites_page():
-    favorites = Favorite.query.filter_by(user_id=current_user.id).all()
+    conn = get_db_connection()
+    favorites = []
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM favorites WHERE user_id = %s ORDER BY added_date DESC", (current_user.id,))
+        favorites = cur.fetchall()
+        cur.close()
+        conn.close()
     return render_template('dashboard/favorites.html', user=current_user, favorites=favorites)
 
 @app.route('/dashboard/profile')
 @login_required
 def profile_page():
-    history_count = DownloadHistory.query.filter_by(user_id=current_user.id).count()
-    favorites_count = Favorite.query.filter_by(user_id=current_user.id).count()
+    conn = get_db_connection()
+    history_count = 0
+    favorites_count = 0
+    if conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
+        history_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM favorites WHERE user_id = %s", (current_user.id,))
+        favorites_count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
     return render_template('dashboard/profile.html', 
                          user=current_user, 
                          history_count=history_count, 
@@ -211,26 +296,32 @@ def profile_page():
 @login_required
 def add_favorite():
     data = request.get_json()
-    existing = Favorite.query.filter_by(user_id=current_user.id, video_url=data.get('url')).first()
-    if not existing:
-        fav = Favorite(
-            user_id=current_user.id,
-            video_url=data.get('url'),
-            video_title=data.get('title', 'Unknown'),
-            video_thumbnail=data.get('thumbnail', '')
-        )
-        db.session.add(fav)
-        db.session.commit()
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM favorites WHERE user_id = %s AND video_url = %s", (current_user.id, data.get('url')))
+        existing = cur.fetchone()
+        if not existing:
+            cur.execute("""
+                INSERT INTO favorites (user_id, video_url, video_title, video_thumbnail) 
+                VALUES (%s, %s, %s, %s)
+            """, (current_user.id, data.get('url'), data.get('title', 'Unknown'), data.get('thumbnail', '')))
+            conn.commit()
+        cur.close()
+        conn.close()
     return jsonify({'success': True})
 
 @app.route('/api/favorite/remove', methods=['POST'])
 @login_required
 def remove_favorite():
     data = request.get_json()
-    fav = Favorite.query.filter_by(user_id=current_user.id, video_url=data.get('url')).first()
-    if fav:
-        db.session.delete(fav)
-        db.session.commit()
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM favorites WHERE user_id = %s AND video_url = %s", (current_user.id, data.get('url')))
+        conn.commit()
+        cur.close()
+        conn.close()
     return jsonify({'success': True})
 
 # ============ VIDEO DOWNLOAD ROUTES ============
@@ -277,15 +368,16 @@ def analyze():
         
         # Save to history if user logged in
         if current_user.is_authenticated:
-            history = DownloadHistory(
-                user_id=current_user.id,
-                video_url=url,
-                video_title=info.get('title', 'Unknown'),
-                video_thumbnail=info.get('thumbnail', ''),
-                video_quality=''
-            )
-            db.session.add(history)
-            db.session.commit()
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO downloads (user_id, video_url, video_title, video_thumbnail) 
+                    VALUES (%s, %s, %s, %s)
+                """, (current_user.id, url, info.get('title', 'Unknown'), info.get('thumbnail', '')))
+                conn.commit()
+                cur.close()
+                conn.close()
         
         return jsonify({
             'title': info.get('title', 'Unknown'),
@@ -352,12 +444,16 @@ def download():
     except Exception as e:
         return jsonify({'error': str(e)[:150]}), 500
 
-# ============ CREATE DATABASE TABLES ============
+# ============ INITIALIZE DATABASE ============
 with app.app_context():
-    db.create_all()
+    init_db()
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 5000))
-    # Ni muhimu kutumia host='0.0.0.0' ili Render iweze kupata bandari
+    print("=" * 55)
+    print("🎬 botDL - Video Downloader with Supabase")
+    print("📍 Server: http://127.0.0.1:5000")
+    print("🔐 Google Authentication Enabled")
+    print("🐘 Database: Supabase PostgreSQL")
+    print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
