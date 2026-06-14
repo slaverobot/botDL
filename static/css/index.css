@@ -97,6 +97,8 @@ h3 {
     justify-content: space-between;
     align-items: center;
     padding: 0.8rem 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .logo {
@@ -135,6 +137,7 @@ h3 {
 .nav-right {
     display: flex;
     align-items: center;
+    gap: 1.5rem;
 }
 
 .powered {
@@ -147,6 +150,243 @@ h3 {
 .animated-name {
     color: #00ff44;
     font-weight: 600;
+}
+
+/* ============ AUTH BUTTONS ============ */
+.auth-buttons {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.btn-login, .btn-signup {
+    padding: 0.5rem 1.2rem;
+    border-radius: 40px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-login {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+.btn-login:hover {
+    border-color: #00ff44;
+    color: #00ff44;
+    transform: translateY(-2px);
+}
+
+.btn-signup {
+    background: linear-gradient(135deg, #00ff44, #00cc88);
+    border: none;
+    color: #000000;
+    font-weight: 700;
+}
+
+.btn-signup:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 255, 68, 0.3);
+}
+
+/* ============ USER MENU (Logged In) ============ */
+.user-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    cursor: pointer;
+    padding: 0.3rem 0.8rem;
+    border-radius: 40px;
+    background: rgba(18, 22, 35, 0.5);
+    transition: all 0.3s ease;
+}
+
+.user-menu:hover {
+    background: rgba(18, 22, 35, 0.8);
+    border-color: rgba(0, 255, 68, 0.3);
+}
+
+.user-avatar-wrapper {
+    position: relative;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #00ff44;
+}
+
+.user-status {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #05050A;
+}
+
+.user-status.online {
+    background: #00ff44;
+}
+
+.user-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.user-chevron {
+    font-size: 0.7rem;
+    color: #888;
+    transition: transform 0.3s;
+}
+
+.user-menu.active .user-chevron {
+    transform: rotate(180deg);
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 280px;
+    background: rgba(18, 22, 35, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 0.8rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.user-menu.active .user-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding-bottom: 0.8rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-header img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.dropdown-header div {
+    display: flex;
+    flex-direction: column;
+}
+
+.dropdown-header strong {
+    font-size: 0.85rem;
+    color: #fff;
+}
+
+.dropdown-header span {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0.5rem 0;
+}
+
+.user-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.7rem 0.8rem;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+
+.user-dropdown a i {
+    width: 20px;
+    font-size: 0.9rem;
+}
+
+.user-dropdown a:hover {
+    background: rgba(0, 255, 68, 0.1);
+    color: #00ff44;
+}
+
+.logout-link {
+    color: #ff4444 !important;
+}
+
+.logout-link:hover {
+    background: rgba(255, 68, 68, 0.1) !important;
+    color: #ff4444 !important;
+}
+
+/* ============ WELCOME BANNER ============ */
+.welcome-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    background: linear-gradient(135deg, rgba(0, 255, 68, 0.1), rgba(0, 204, 136, 0.05));
+    border-left: 3px solid #00ff44;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.welcome-icon {
+    font-size: 2rem;
+}
+
+.welcome-text h4 {
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+    color: #00ff44;
+}
+
+.welcome-text p {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.welcome-btn {
+    background: linear-gradient(135deg, #00ff44, #00cc88);
+    padding: 0.5rem 1.2rem;
+    border-radius: 40px;
+    color: #000;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: transform 0.2s;
+}
+
+.welcome-btn:hover {
+    transform: translateY(-2px);
 }
 
 /* ============ HERO SECTION ============ */
@@ -879,6 +1119,11 @@ h3 {
         display: none;
     }
     
+    .nav-right {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    
     .url-container {
         flex-direction: column;
         padding: 1rem;
@@ -913,6 +1158,29 @@ h3 {
     
     .floating-elements {
         display: none;
+    }
+    
+    .auth-buttons {
+        gap: 0.5rem;
+    }
+    
+    .btn-login, .btn-signup {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+    
+    .user-name {
+        display: none;
+    }
+    
+    .user-dropdown {
+        right: -50px;
+        width: 260px;
+    }
+    
+    .welcome-banner {
+        flex-direction: column;
+        text-align: center;
     }
 }
 
