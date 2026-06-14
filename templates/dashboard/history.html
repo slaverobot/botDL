@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download History - botDL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #05050A; color: #fff; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+        .logo { font-size: 1.5rem; font-weight: 700; }
+        .logo-accent { color: #00ff44; }
+        .nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .nav-links a { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: #00ff44; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
+        .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
+        .logout-btn:hover { background: #ff4444; color: white; }
+        .section-title { font-size: 1.2rem; margin-bottom: 1rem; }
+        .history-list { background: rgba(18, 22, 35, 0.5); border-radius: 16px; overflow: hidden; }
+        .history-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .history-item:hover { background: rgba(0, 255, 68, 0.05); }
+        .history-item img { width: 100px; height: 60px; object-fit: cover; border-radius: 8px; }
+        .history-info { flex: 1; }
+        .history-title { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.2rem; }
+        .history-meta { font-size: 0.7rem; color: #888; }
+        .history-quality { color: #00ff44; font-size: 0.8rem; font-weight: 600; }
+        .empty-state { text-align: center; padding: 3rem; color: #555; }
+        .back-link { color: #00ff44; text-decoration: none; display: inline-block; margin-bottom: 1rem; }
+        @media (max-width: 768px) { .container { padding: 1rem; } .navbar { flex-direction: column; text-align: center; } .history-item { flex-wrap: wrap; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">bot<span class="logo-accent">DL</span></div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/dashboard/history" class="active">History</a>
+                <a href="/dashboard/favorites">Favorites</a>
+                <a href="/dashboard/profile">Profile</a>
+            </div>
+            <div class="user-info">
+                <img src="{{ user.picture }}" class="user-avatar" alt="{{ user.name }}">
+                <span>{{ user.name.split()[0] }}</span>
+                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </div>
+        </nav>
+        
+        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+        <div class="section-title">📜 Download History</div>
+        
+        <div class="history-list">
+            {% if history %}
+                {% for item in history %}
+                <div class="history-item">
+                    <img src="{{ item.video_thumbnail }}" alt="">
+                    <div class="history-info">
+                        <div class="history-title">{{ item.video_title[:60] }}</div>
+                        <div class="history-meta">{{ item.download_date.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                    </div>
+                    <div class="history-quality">{{ item.video_quality or '1080p' }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-history" style="font-size: 3rem; color: #333; margin-bottom: 1rem; display: block;"></i>
+                    <p>No download history yet.</p>
+                    <a href="/" style="color: #00ff44; margin-top: 1rem; display: inline-block;">Start Downloading →</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
