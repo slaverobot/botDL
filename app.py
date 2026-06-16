@@ -325,27 +325,22 @@ def download():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ============ DASHBOARD ============
+# ============ DASHBOARD ROUTES (FIXED) ============
 @app.route('/dashboard')
 @login_required
 def dashboard():
     try:
         conn = get_db_connection()
         recent_downloads = []
-        favorites = []
         history_count = 0
-        favorites_count = 0
         created_at = None
         
         if conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC LIMIT 5", (current_user.id,))
             recent_downloads = cur.fetchall()
-            cur.execute("SELECT * FROM favorites WHERE user_id = %s", (current_user.id,))
-            favorites = cur.fetchall()
             cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
             history_count = cur.fetchone()['count']
-            favorites_count = len(favorites)
             cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
             result = cur.fetchone()
             if result:
@@ -353,15 +348,14 @@ def dashboard():
             cur.close()
             conn.close()
         
-        return render_template('dashboard/home.html', 
+        return render_template('dashboard_home.html', 
                              user=current_user, 
                              recent_downloads=recent_downloads,
                              history_count=history_count,
-                             favorites_count=favorites_count,
                              member_since=created_at.strftime('%b %Y') if created_at else 'New')
     except Exception as e:
         print(f"Dashboard error: {e}")
-        return render_template('dashboard/home.html', user=current_user, recent_downloads=[], history_count=0, favorites_count=0, member_since='New')
+        return render_template('dashboard_home.html', user=current_user, recent_downloads=[], history_count=0, member_since='New')
 
 @app.route('/dashboard/history')
 @login_required
@@ -371,17 +365,14 @@ def history_page():
         history = []
         if conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute(
-                "SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC",
-                (current_user.id,)
-            )
+            cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC", (current_user.id,))
             history = cur.fetchall()
             cur.close()
             conn.close()
-        return render_template('dashboard/history.html', user=current_user, history=history)
+        return render_template('dashboard_history.html', user=current_user, history=history)
     except Exception as e:
         print(f"History error: {e}")
-        return render_template('dashboard/history.html', user=current_user, history=[])
+        return render_template('dashboard_history.html', user=current_user, history=[])
 
 @app.route('/dashboard/favorites')
 @login_required
@@ -395,10 +386,10 @@ def favorites_page():
             favorites = cur.fetchall()
             cur.close()
             conn.close()
-        return render_template('dashboard/favorites.html', user=current_user, favorites=favorites)
+        return render_template('dashboard_favorites.html', user=current_user, favorites=favorites)
     except Exception as e:
         print(f"Favorites error: {e}")
-        return render_template('dashboard/favorites.html', user=current_user, favorites=[])
+        return render_template('dashboard_favorites.html', user=current_user, favorites=[])
 
 @app.route('/dashboard/profile')
 @login_required
@@ -422,14 +413,14 @@ def profile_page():
             cur.close()
             conn.close()
         
-        return render_template('dashboard/profile.html', 
+        return render_template('dashboard_profile.html', 
                              user=current_user, 
                              history_count=history_count, 
                              favorites_count=favorites_count,
                              created_at=created_at)
     except Exception as e:
         print(f"Profile error: {e}")
-        return render_template('dashboard/profile.html', user=current_user, history_count=0, favorites_count=0, created_at=None)
+        return render_template('dashboard_profile.html', user=current_user, history_count=0, favorites_count=0, created_at=None)
 
 # ============ INIT ============
 with app.app_context():
@@ -438,9 +429,10 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader (WITH AUDIO FIX)")
+    print("🎬 botDL - Video Downloader (FULLY FIXED)")
     print(f"📍 Server: http://127.0.0.1:{port}")
     print("🔐 Google Authentication Enabled")
     print("✅ Video downloads now include audio!")
+    print("✅ Dashboard routes fixed!")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
