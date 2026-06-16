@@ -112,4 +112,249 @@ function renderQualities(formats) {
             div.style.cursor = 'not-allowed';
             div.onclick = () => showToast(`${quality} not available`, true);
         } else {
-            div.onclick
+            div.onclick = () => {
+                document.querySelectorAll('.quality-option').forEach(q => q.classList.remove('active'));
+                div.classList.add('active');
+                selectedFormat = found;
+                showToast(`${quality} selected`);
+            };
+            if (!selectedFormat && quality === '1080p') div.click();
+        }
+        qualityGrid.appendChild(div);
+    });
+}
+
+// ============ ANALYZE ============
+async function analyzeVideo() {
+    const url = urlInput?.value.trim();
+    if (!url) {
+        showToast('Please paste a URL', true);
+        urlInput.style.borderColor = '#ff4444';
+        setTimeout(() => urlInput.style.borderColor = '', 2000);
+        return;
+    }
+    
+    urlInput.style.borderColor = '';
+    skeleton?.classList.add('active');
+    videoPreview.style.display = 'none';
+    qualitySection.style.display = 'none';
+    downloadSection.style.display = 'none';
+    selectedFormat = null;
+    
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '⏳ Analyzing...';
+    
+    let platformName = 'video';
+    if (url.includes('tiktok')) platformName = 'TikTok';
+    else if (url.includes('instagram')) platformName = 'Instagram';
+    else if (url.includes('facebook')) platformName = 'Facebook';
+    else if (url.includes('youtube')) platformName = 'YouTube';
+    
+    showToast(`🔍 Analyzing ${platformName}...`);
+    
+    try {
+        const res = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ url })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Analysis failed');
+        }
+        
+        const data = await res.json();
+        currentVideoData = data;
+        
+        thumbnail.src = data.thumbnail || 'https://placehold.co/160x90/1a1a2a/ffffff?text=No+Image';
+        title.textContent = data.title || 'Unknown';
+        platform.textContent = data.platform || 'Unknown';
+        duration.textContent = data.duration || '--:--';
+        uploader.textContent = data.uploader || '—';
+        views.textContent = data.view_count ? `${data.view_count.toLocaleString()} views` : '— views';
+        
+        renderQualities(data.formats || []);
+        
+        skeleton.classList.remove('active');
+        videoPreview.style.display = 'block';
+        qualitySection.style.display = 'block';
+        downloadSection.style.display = 'block';
+        
+        showToast(`✓ ${data.platform} video ready!`);
+        
+    } catch (err) {
+        skeleton.classList.remove('active');
+        showToast(err.message, true);
+    } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = 'Analyze Video';
+    }
+}
+
+// ============ DOWNLOAD ============
+async function startDownload() {
+    if (!currentVideoData || !selectedFormat) {
+        showToast('Select a quality first', true);
+        return;
+    }
+    
+    if (!currentVideoData.url) {
+        showToast('Missing URL. Analyze again.', true);
+        return;
+    }
+    
+    downloadBtn.disabled = true;
+    progressContainer.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressPercent.textContent = '0%';
+    progressLabel.textContent = 'Connecting...';
+    
+    let progress = 0;
+    const startTime = Date.now();
+    
+    const interval = setInterval(() => {
+        if (progress < 90) {
+            progress += Math.random() * 10;
+            if (progress > 90) progress = 90;
+            progressFill.style.width = `${progress}%`;
+            progressPercent.textContent = `${Math.floor(progress)}%`;
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = (progress * 0.5) / elapsed;
+            if (speed > 0) {
+                progressLabel.textContent = `${speed.toFixed(1)} MB/s`;
+            }
+        }
+    }, 300);
+    
+    try {
+        const res = await fetch('/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                url: currentVideoData.url,
+                format_id: selectedFormat.format_id,
+                title_hint: currentVideoData.title
+            })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Download failed');
+        }
+        
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(currentVideoData.title || 'video').substring(0, 50)}.${selectedFormat.ext || 'mp4'}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        clearInterval(interval);
+        progressFill.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressLabel.textContent = '✓ Complete!';
+        
+        addToHistory(currentVideoData.title, currentVideoData.thumbnail, selectedFormat.label);
+        showToast('✓ Download complete!');
+        
+        setTimeout(() => {
+            progressContainer.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressPercent.textContent = '0%';
+        }, 2000);
+        
+    } catch (err) {
+        clearInterval(interval);
+        showToast(err.message, true);
+        progressContainer.style.display = 'none';
+    } finally {
+        downloadBtn.disabled = false;
+    }
+}
+
+// ============ HISTORY ============
+function addToHistory(videoTitle, thumbnailUrl, quality) {
+    downloadHistory.unshift({
+        id: Date.now(),
+        title: (videoTitle || 'Unknown').substring(0, 40),
+        thumbnail: thumbnailUrl,
+        quality: quality,
+        timestamp: new Date().toLocaleString()
+    });
+    if (downloadHistory.length > 10) downloadHistory.pop();
+    localStorage.setItem('downloadHistory', JSON.stringify(downloadHistory));
+    renderHistory();
+}
+
+function renderHistory() {
+    if (!historyList) return;
+    if (!downloadHistory.length) {
+        historyList.innerHTML = '<div class="empty-state">✨ No downloads yet</div>';
+        return;
+    }
+    historyList.innerHTML = downloadHistory.map(item => `
+        <div class="history-item">
+            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1a2a/ffffff'}" onerror="this.src='https://placehold.co/60x40/1a1a2a/ffffff'">
+            <div class="history-info">
+                <div class="history-title">${escapeHtml(item.title)}</div>
+                <div class="history-meta">${item.timestamp}</div>
+            </div>
+            <div class="history-quality">${item.quality}</div>
+        </div>
+    `).join('');
+}
+
+function clearHistory() {
+    downloadHistory = [];
+    localStorage.setItem('downloadHistory', JSON.stringify(downloadHistory));
+    renderHistory();
+    showToast('History cleared');
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
+}
+
+// ============ EVENTS ============
+if (pasteBtn) {
+    pasteBtn.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            urlInput.value = text;
+            showToast('Link pasted!');
+        } catch {
+            showToast('Cannot paste', true);
+        }
+    });
+}
+
+if (closePreview) {
+    closePreview.addEventListener('click', () => {
+        videoPreview.style.display = 'none';
+        qualitySection.style.display = 'none';
+        downloadSection.style.display = 'none';
+        currentVideoData = null;
+        selectedFormat = null;
+        urlInput.value = '';
+    });
+}
+
+analyzeBtn?.addEventListener('click', analyzeVideo);
+downloadBtn?.addEventListener('click', startDownload);
+clearHistoryBtn?.addEventListener('click', clearHistory);
+urlInput?.addEventListener('keypress', e => e.key === 'Enter' && analyzeVideo());
+
+// ============ INIT ============
+initName();
+renderHistory();
+checkAuth();
+
+window.analyzeVideo = analyzeVideo;
+window.startDownload = startDownload;
+window.clearHistory = clearHistory;
