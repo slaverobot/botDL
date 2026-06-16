@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile - botDL</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Dashboard - botDL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: #05050A; color: #fff; min-height: 100vh; }
-        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
         .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
         .logo { font-size: 1.5rem; font-weight: 700; }
         .logo-accent { color: #00ff44; }
@@ -20,16 +20,23 @@
         .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
         .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
         .logout-btn:hover { background: #ff4444; color: white; }
-        .profile-card { background: rgba(18, 22, 35, 0.7); border-radius: 24px; padding: 2rem; text-align: center; }
-        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #00ff44; margin-bottom: 1rem; }
-        .profile-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.3rem; }
-        .profile-email { color: #888; margin-bottom: 1rem; }
-        .profile-stats { display: flex; justify-content: center; gap: 2rem; margin: 1.5rem 0; }
-        .stat { text-align: center; }
-        .stat-value { font-size: 1.5rem; font-weight: 700; color: #00ff44; }
-        .stat-label { font-size: 0.7rem; color: #888; }
-        .member-since { color: #555; font-size: 0.8rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
-        .back-link { color: #00ff44; text-decoration: none; display: inline-block; margin-bottom: 1rem; }
+        .welcome-banner { background: linear-gradient(135deg, rgba(0,255,68,0.1), rgba(0,204,136,0.05)); border-left: 3px solid #00ff44; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: rgba(18, 22, 35, 0.7); border-radius: 20px; padding: 1.5rem; text-align: center; border: 1px solid rgba(255,255,255,0.08); }
+        .stat-icon { font-size: 2rem; color: #00ff44; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-label { font-size: 0.8rem; color: #888; }
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.2rem; }
+        .downloads-list { background: rgba(18, 22, 35, 0.5); border-radius: 16px; overflow: hidden; }
+        .download-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .download-item:hover { background: rgba(0, 255, 68, 0.05); }
+        .download-item img { width: 80px; height: 50px; object-fit: cover; border-radius: 8px; }
+        .download-info { flex: 1; }
+        .download-title { font-size: 0.9rem; font-weight: 500; }
+        .download-meta { font-size: 0.7rem; color: #888; }
+        .download-quality { color: #00ff44; font-size: 0.8rem; font-weight: 600; }
+        .empty-state { text-align: center; padding: 3rem; color: #555; }
+        .link-green { color: #00ff44; text-decoration: none; font-size: 0.8rem; }
         @media (max-width: 768px) { .container { padding: 1rem; } .navbar { flex-direction: column; text-align: center; } }
     </style>
 </head>
@@ -38,10 +45,10 @@
         <nav class="navbar">
             <div class="logo">bot<span class="logo-accent">DL</span></div>
             <div class="nav-links">
-                <a href="/">Home</a>
+                <a href="/dashboard" class="active">Home</a>
                 <a href="/dashboard/history">History</a>
                 <a href="/dashboard/favorites">Favorites</a>
-                <a href="/dashboard/profile" class="active">Profile</a>
+                <a href="/dashboard/profile">Profile</a>
             </div>
             <div class="user-info">
                 <img src="{{ user.picture }}" class="user-avatar" alt="{{ user.name }}">
@@ -50,27 +57,53 @@
             </div>
         </nav>
         
-        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+        <div class="welcome-banner">
+            <h2>Welcome back, {{ user.name }}! 👋</h2>
+            <p>Ready to download more videos? Paste a link on the homepage to get started.</p>
+        </div>
         
-        <div class="profile-card">
-            <img src="{{ user.picture }}" class="profile-avatar" alt="{{ user.name }}">
-            <h1 class="profile-name">{{ user.name }}</h1>
-            <p class="profile-email">{{ user.email }}</p>
-            
-            <div class="profile-stats">
-                <div class="stat">
-                    <div class="stat-value">{{ history_count|default(0) }}</div>
-                    <div class="stat-label">Downloads</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value">{{ favorites_count|default(0) }}</div>
-                    <div class="stat-label">Favorites</div>
-                </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-download"></i></div>
+                <div class="stat-value">{{ history_count|default(0) }}</div>
+                <div class="stat-label">Total Downloads</div>
             </div>
-            
-            <div class="member-since">
-                <i class="fas fa-calendar-alt"></i> Member since {{ user.created_at.strftime('%B %d, %Y') }}
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-heart"></i></div>
+                <div class="stat-value">{{ favorites_count|default(0) }}</div>
+                <div class="stat-label">Favorites</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar"></i></div>
+                <div class="stat-value">{{ member_since|default('New') }}</div>
+                <div class="stat-label">Member Since</div>
+            </div>
+        </div>
+        
+        <div class="section-title">
+            <span>Recent Downloads</span>
+            <a href="/dashboard/history" class="link-green">View All →</a>
+        </div>
+        
+        <div class="downloads-list">
+            {% if recent_downloads %}
+                {% for download in recent_downloads %}
+                <div class="download-item">
+                    <img src="{{ download.video_thumbnail }}" alt="">
+                    <div class="download-info">
+                        <div class="download-title">{{ download.video_title[:50] }}</div>
+                        <div class="download-meta">{{ download.download_date.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                    <div class="download-quality">{{ download.video_quality or '1080p' }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-download" style="font-size: 3rem; color: #333; margin-bottom: 1rem; display: block;"></i>
+                    <p>No downloads yet. Start by downloading a video from the homepage!</p>
+                    <a href="/" style="color: #00ff44; margin-top: 1rem; display: inline-block;">Go to Homepage →</a>
+                </div>
+            {% endif %}
         </div>
     </div>
 </body>
