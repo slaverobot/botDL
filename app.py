@@ -422,6 +422,45 @@ def profile_page():
         print(f"Profile error: {e}")
         return render_template('dashboard_profile.html', user=current_user, history_count=0, favorites_count=0, created_at=None)
 
+# ============ DELETE HISTORY ROUTES ============
+@app.route('/api/history/<int:history_id>', methods=['DELETE'])
+@login_required
+def delete_history(history_id):
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute(
+                "DELETE FROM downloads WHERE id = %s AND user_id = %s",
+                (history_id, current_user.id)
+            )
+            affected = cur.rowcount
+            conn.commit()
+            cur.close()
+            conn.close()
+            if affected > 0:
+                return jsonify({'success': True})
+            return jsonify({'error': 'Entry not found'}), 404
+        return jsonify({'error': 'Database error'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/history/clear', methods=['DELETE'])
+@login_required
+def clear_all_history():
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM downloads WHERE user_id = %s", (current_user.id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({'success': True})
+        return jsonify({'error': 'Database error'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============ INIT ============
 with app.app_context():
     init_db()
@@ -435,5 +474,6 @@ if __name__ == '__main__':
     print(f"📍 Server: http://127.0.0.1:{port}")
     print("🔐 Google Authentication Enabled")
     print("✅ Video downloads now include audio!")
+    print("✅ Delete history enabled!")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
