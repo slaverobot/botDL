@@ -62,6 +62,16 @@ def init_db():
             download_date TIMESTAMP DEFAULT NOW()
         )
     ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT REFERENCES users(id),
+            video_url TEXT,
+            video_title TEXT,
+            video_thumbnail TEXT,
+            added_date TIMESTAMP DEFAULT NOW()
+        )
+    ''')
     conn.commit()
     cur.close()
     conn.close()
@@ -226,7 +236,6 @@ def analyze():
 
         for f in info.get('formats', []):
             h = f.get('height')
-            # 🔥 FIX: Only include formats WITH audio (acodec != 'none')
             if h and f.get('acodec') != 'none' and h <= 4320:
                 label = qmap.get(min(qmap.keys(), key=lambda x: abs(x - h)), f'{h}p')
                 if label not in seen:
@@ -293,7 +302,6 @@ def download():
                 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}]
             }
         else:
-            # 🔥 FIX: Use format that already has audio (best[ext=mp4])
             opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': output,
@@ -321,13 +329,46 @@ def download():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard/home.html', user=current_user)
+    try:
+        conn = get_db_connection()
+        recent_downloads = []
+        favorites = []
+        history_count = 0
+        favorites_count = 0
+        created_at = None
+        
+        if conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM downloads WHERE user_id = %s ORDER BY download_date DESC LIMIT 5", (current_user.id,))
+            recent_downloads = cur.fetchall()
+            cur.execute("SELECT * FROM favorites WHERE user_id = %s", (current_user.id,))
+            favorites = cur.fetchall()
+            cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
+            history_count = cur.fetchone()['count']
+            favorites_count = len(favorites)
+            cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result:
+                created_at = result['created_at']
+            cur.close()
+            conn.close()
+        
+        return render_template('dashboard/home.html', 
+                             user=current_user, 
+                             recent_downloads=recent_downloads,
+                             history_count=history_count,
+                             favorites_count=favorites_count,
+                             member_since=created_at.strftime('%b %Y') if created_at else 'New')
+    except Exception as e:
+        print(f"Dashboard error: {e}")
+        return render_template('dashboard/home.html', user=current_user, recent_downloads=[], history_count=0, favorites_count=0, member_since='New')
 
 @app.route('/dashboard/history')
 @login_required
 def history_page():
     try:
         conn = get_db_connection()
+        history = []
         if conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute(
@@ -337,20 +378,58 @@ def history_page():
             history = cur.fetchall()
             cur.close()
             conn.close()
-            return render_template('dashboard/history.html', user=current_user, history=history)
+        return render_template('dashboard/history.html', user=current_user, history=history)
     except Exception as e:
         print(f"History error: {e}")
-    return render_template('dashboard/history.html', user=current_user, history=[])
+        return render_template('dashboard/history.html', user=current_user, history=[])
 
 @app.route('/dashboard/favorites')
 @login_required
 def favorites_page():
-    return render_template('dashboard/favorites.html', user=current_user)
+    try:
+        conn = get_db_connection()
+        favorites = []
+        if conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM favorites WHERE user_id = %s ORDER BY added_date DESC", (current_user.id,))
+            favorites = cur.fetchall()
+            cur.close()
+            conn.close()
+        return render_template('dashboard/favorites.html', user=current_user, favorites=favorites)
+    except Exception as e:
+        print(f"Favorites error: {e}")
+        return render_template('dashboard/favorites.html', user=current_user, favorites=[])
 
 @app.route('/dashboard/profile')
 @login_required
 def profile_page():
-    return render_template('dashboard/profile.html', user=current_user)
+    try:
+        conn = get_db_connection()
+        history_count = 0
+        favorites_count = 0
+        created_at = None
+        
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM downloads WHERE user_id = %s", (current_user.id,))
+            history_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM favorites WHERE user_id = %s", (current_user.id,))
+            favorites_count = cur.fetchone()[0]
+            cur.execute("SELECT created_at FROM users WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result:
+                created_at = result[0]
+            cur.close()
+            conn.close()
+        
+        return render_template('dashboard/profile.html', 
+                             user=current_user, 
+                             history_count=history_count, 
+                             favorites_count=favorites_count,
+                             created_at=created_at)
+    except Exception as e:
+        print(f"Profile error: {e}")
+        return render_template('dashboard/profile.html', user=current_user, history_count=0, favorites_count=0, created_at=None)
 
 # ============ INIT ============
 with app.app_context():
