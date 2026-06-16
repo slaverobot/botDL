@@ -9,7 +9,7 @@ let currentLetterIndex = 0;
 let animationInterval = null;
 const animatedNameElement = document.getElementById('animatedName');
 
-const jumpColors = ['#C9A84C', '#F0D080', '#C9A84C', '#E8C86A', '#F5D87A'];
+const jumpColors = ['#00ff44', '#00ff88', '#00ffaa', '#00ffcc', '#00ffee'];
 
 function jumpLetter(span, color) {
     if (!span) return;
@@ -93,7 +93,7 @@ function showToast(message, isError = false) {
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${isError ? 'error' : ''}`;
-    toast.innerHTML = `<span>${isError ? '⚠ ' : '⚔ '}${message}</span>`;
+    toast.innerHTML = `<span>${isError ? '⚠️ ' : '✅ '}${message}</span>`;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
@@ -106,8 +106,8 @@ function updateUIForLoggedInUser(user) {
             <div class="user-menu">
                 <img src="${user.picture}" class="user-avatar" style="width: 32px; height: 32px; border-radius: 50%;">
                 <span>${user.name.split(' ')[0]}</span>
-                <a href="/dashboard" class="btn-signup">War Room</a>
-                <a href="/logout" class="btn-login">Retreat</a>
+                <a href="/dashboard" class="btn-dashboard">Dashboard</a>
+                <a href="/logout" class="btn-logout">Logout</a>
             </div>
         `;
     }
@@ -117,8 +117,8 @@ function updateUIForLoggedOutUser() {
     const authContainer = document.querySelector('.auth-buttons');
     if (authContainer) {
         authContainer.innerHTML = `
-            <a href="/login" class="btn-login"><i class="fas fa-sign-in-alt"></i> Sign In</a>
-            <a href="/login" class="btn-signup"><i class="fas fa-shield-alt"></i> Join Guild</a>
+            <a href="/login" class="btn-login">Sign In</a>
+            <a href="/login" class="btn-signup">Create Account</a>
         `;
     }
 }
@@ -129,7 +129,7 @@ async function checkAuthStatus() {
         const response = await fetch('/api/user', { credentials: 'include' });
         if (response.ok) {
             const user = await response.json();
-            console.log('Hero identified:', user.email);
+            console.log('User logged in:', user.email);
             updateUIForLoggedInUser(user);
             return true;
         } else {
@@ -137,7 +137,7 @@ async function checkAuthStatus() {
             return false;
         }
     } catch (error) {
-        console.error('Error checking hero status:', error);
+        console.error('Error checking auth status:', error);
         updateUIForLoggedOutUser();
         return false;
     }
@@ -163,22 +163,24 @@ function renderQualities(formats) {
             div.innerHTML = `<span>${quality}</span>`;
 
             if (!found) {
-                div.style.opacity = '0.35';
+                div.style.opacity = '0.4';
                 div.style.cursor = 'not-allowed';
-                div.onclick = () => showToast(`${quality} not found in this realm`, true);
+                div.onclick = () => showToast(`${quality} not available for this video`, true);
             } else {
                 div.onclick = () => {
                     document.querySelectorAll('.quality-option').forEach(q => q.classList.remove('active'));
                     div.classList.add('active');
                     selectedFormat = found;
-                    showToast(`${quality} rune selected`);
+                    showToast(`${quality} selected`, false);
                 };
+                // Auto-select 1080p if available, otherwise first available format
                 if (!selectedFormat && quality === '1080p') div.click();
             }
             qualityGrid.appendChild(div);
         });
     });
 
+    // If nothing was auto-selected (no 1080p), select the first available format
     if (!selectedFormat) {
         const firstAvailable = qualityGrid.querySelector('.quality-option:not([style*="not-allowed"])');
         if (firstAvailable) firstAvailable.click();
@@ -189,9 +191,9 @@ function renderQualities(formats) {
 async function analyzeVideo() {
     const url = urlInput?.value.trim();
     if (!url) {
-        showToast('Paste a video link into the Quest Scroll first!', true);
+        showToast('Please paste a video URL', true);
         if (urlInput) {
-            urlInput.style.borderColor = '#C0392B';
+            urlInput.style.borderColor = '#ff4444';
             setTimeout(() => urlInput.style.borderColor = '', 2000);
         }
         return;
@@ -202,14 +204,14 @@ async function analyzeVideo() {
     if (videoPreview) videoPreview.style.display = 'none';
     if (qualitySection) qualitySection.style.display = 'none';
     if (downloadSection) downloadSection.style.display = 'none';
-    selectedFormat = null;
+    selectedFormat = null; // reset previous selection
 
     if (analyzeBtn) {
         analyzeBtn.classList.add('loading');
         analyzeBtn.disabled = true;
     }
 
-    let detectedPlatform = 'Unknown Realm';
+    let detectedPlatform = 'video';
     if (url.includes('tiktok')) detectedPlatform = 'TikTok';
     else if (url.includes('instagram')) detectedPlatform = 'Instagram';
     else if (url.includes('facebook') || url.includes('fb.watch')) detectedPlatform = 'Facebook';
@@ -217,7 +219,7 @@ async function analyzeVideo() {
     else if (url.includes('twitter') || url.includes('x.com')) detectedPlatform = 'Twitter';
     else if (url.includes('vimeo')) detectedPlatform = 'Vimeo';
 
-    showToast(`Scouting the ${detectedPlatform} realm...`, false);
+    showToast(`🔍 Analyzing ${detectedPlatform} video...`, false);
 
     try {
         const response = await fetch('/analyze', {
@@ -229,18 +231,18 @@ async function analyzeVideo() {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error || 'Failed to scout video');
+            throw new Error(error.error || 'Failed to analyze video');
         }
 
         const data = await response.json();
-        currentVideoData = data;
+        currentVideoData = data; // data.url is now included from the server
 
-        if (thumbnail) thumbnail.src = data.thumbnail || 'https://placehold.co/160x90/1a1208/C9A84C?text=No+Vision';
-        if (title) title.textContent = data.title || 'Unknown Treasure';
-        if (platform) platform.textContent = data.platform || 'Unknown Realm';
+        if (thumbnail) thumbnail.src = data.thumbnail || 'https://placehold.co/160x90/1a1a2a/ffffff?text=No+Image';
+        if (title) title.textContent = data.title || 'Unknown Title';
+        if (platform) platform.textContent = data.platform || 'Unknown';
         if (duration) duration.textContent = data.duration || '--:--';
         if (uploader) uploader.textContent = data.uploader || 'Unknown';
-        if (views) views.textContent = data.view_count ? `${data.view_count.toLocaleString()} witnesses` : '— witnesses';
+        if (views) views.textContent = data.view_count ? `${data.view_count.toLocaleString()} views` : '— views';
 
         renderQualities(data.formats || []);
 
@@ -249,7 +251,7 @@ async function analyzeVideo() {
         if (qualitySection) qualitySection.style.display = 'block';
         if (downloadSection) downloadSection.style.display = 'block';
 
-        showToast(`Treasure found in ${data.platform}! Choose thy spoils.`);
+        showToast(`✓ ${data.platform} video ready for download!`, false);
 
     } catch (error) {
         if (skeleton) skeleton.classList.remove('active');
@@ -265,12 +267,13 @@ async function analyzeVideo() {
 // ============= DOWNLOAD WITH PROGRESS =============
 async function startDownload() {
     if (!currentVideoData || !selectedFormat) {
-        showToast('Select a quality rune first, adventurer!', true);
+        showToast('Please select a quality first', true);
         return;
     }
 
+    // currentVideoData.url is set by /analyze — this was the bug (it was undefined before)
     if (!currentVideoData.url) {
-        showToast('Treasure URL missing. Scout the video again.', true);
+        showToast('Video URL missing. Please analyze the video again.', true);
         return;
     }
 
@@ -278,7 +281,7 @@ async function startDownload() {
     if (progressContainer) progressContainer.classList.add('active');
     if (progressFill) progressFill.style.width = '0%';
     if (progressPercent) progressPercent.textContent = '0%';
-    if (progressLabel) progressLabel.textContent = 'Preparing the heist...';
+    if (progressLabel) progressLabel.textContent = 'Connecting...';
     if (downloadSpeed) downloadSpeed.textContent = '— MB/s';
     if (timeRemaining) timeRemaining.textContent = '— remaining';
 
@@ -302,8 +305,7 @@ async function startDownload() {
                     : `${Math.ceil(remaining / 60)} min remaining`;
             }
         }
-        if (progressLabel && progress < 50) progressLabel.textContent = 'Plundering the realm...';
-        else if (progressLabel && progress >= 50) progressLabel.textContent = 'Securing the loot...';
+        if (progressLabel && progress < 50) progressLabel.textContent = 'Downloading...';
     }, 300);
 
     try {
@@ -312,7 +314,7 @@ async function startDownload() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
-                url: currentVideoData.url,
+                url: currentVideoData.url,           // now correctly populated
                 format_id: selectedFormat.format_id,
                 title_hint: currentVideoData.title
             })
@@ -320,14 +322,14 @@ async function startDownload() {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error || 'The heist has failed!');
+            throw new Error(error.error || 'Download failed');
         }
 
         const blob = await response.blob();
         const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `${(currentVideoData.title || 'treasure').substring(0, 50)}.${selectedFormat.ext || 'mp4'}`;
+        a.download = `${(currentVideoData.title || 'video').substring(0, 50)}.${selectedFormat.ext || 'mp4'}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -336,24 +338,24 @@ async function startDownload() {
         clearInterval(interval);
         if (progressFill) progressFill.style.width = '100%';
         if (progressPercent) progressPercent.textContent = '100%';
-        if (progressLabel) progressLabel.textContent = 'Treasure Claimed! ⚔';
-        if (downloadSpeed) downloadSpeed.textContent = '✓ Victory!';
+        if (progressLabel) progressLabel.textContent = 'Complete!';
+        if (downloadSpeed) downloadSpeed.textContent = '✓ Done';
         if (timeRemaining) timeRemaining.textContent = '';
 
         addToHistory(currentVideoData.title, currentVideoData.thumbnail, selectedFormat.label);
-        showToast('Treasure added to your Vault!');
+        showToast('✓ Download complete!');
 
         setTimeout(() => {
             if (progressContainer) progressContainer.classList.remove('active');
             if (progressFill) progressFill.style.width = '0%';
             if (progressPercent) progressPercent.textContent = '0%';
-        }, 2500);
+        }, 2000);
 
     } catch (error) {
         clearInterval(interval);
         showToast(error.message, true);
         if (progressContainer) progressContainer.classList.remove('active');
-        if (progressLabel) progressLabel.textContent = 'The heist has failed!';
+        if (progressLabel) progressLabel.textContent = 'Download failed';
     } finally {
         if (downloadBtn) downloadBtn.disabled = false;
     }
@@ -363,7 +365,7 @@ async function startDownload() {
 function addToHistory(videoTitle, thumbnailUrl, quality) {
     downloadHistory.unshift({
         id: Date.now(),
-        title: (videoTitle || 'Unknown Treasure').substring(0, 40),
+        title: (videoTitle || 'Unknown').substring(0, 40),
         thumbnail: thumbnailUrl,
         quality: quality,
         timestamp: new Date().toLocaleString()
@@ -376,13 +378,13 @@ function addToHistory(videoTitle, thumbnailUrl, quality) {
 function renderHistory() {
     if (!historyList) return;
     if (downloadHistory.length === 0) {
-        historyList.innerHTML = '<div class="empty-history">⚔ No treasures claimed yet. Begin your quest above.</div>';
+        historyList.innerHTML = '<div class="empty-history">✨ No downloads yet. Start by pasting a video link above.</div>';
         return;
     }
     historyList.innerHTML = downloadHistory.map(item => `
         <div class="history-item">
-            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1208/C9A84C?text=No+Vision'}"
-                 onerror="this.src='https://placehold.co/60x40/1a1208/C9A84C?text=No+Vision'">
+            <img src="${item.thumbnail || 'https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'}"
+                 onerror="this.src='https://placehold.co/60x40/1a1a2a/ffffff?text=No+Image'">
             <div class="history-info">
                 <div class="history-title">${escapeHtml(item.title)}</div>
                 <div class="history-meta">${item.timestamp}</div>
@@ -396,7 +398,7 @@ function clearHistory() {
     downloadHistory = [];
     localStorage.setItem('downloadHistory', JSON.stringify(downloadHistory));
     renderHistory();
-    showToast('Vault purged. A fresh quest begins.');
+    showToast('History cleared', false);
 }
 
 function escapeHtml(str) {
@@ -424,13 +426,13 @@ if (pasteBtn) {
         try {
             const text = await navigator.clipboard.readText();
             if (urlInput) urlInput.value = text;
-            showToast('Scroll pasted! Ready to seek.');
+            showToast('Link pasted! Ready to analyze', false);
             if (urlInput) {
-                urlInput.style.borderColor = '#C9A84C';
+                urlInput.style.borderColor = '#00ff44';
                 setTimeout(() => urlInput.style.borderColor = '', 1000);
             }
         } catch {
-            showToast('Cannot paste. Copy the link first!', true);
+            showToast('Cannot paste. Please copy the link first', true);
         }
     });
 }
