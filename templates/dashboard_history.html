@@ -20,22 +20,133 @@
         .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
         .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
         .logout-btn:hover { background: #ff4444; color: white; }
-        .section-title { font-size: 1.2rem; margin-bottom: 1rem; }
+
+        /* ============ HISTORY HEADER ============ */
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .history-header .section-title {
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        .header-actions {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+        .btn-back {
+            color: #00ff44;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 40px;
+            background: rgba(0, 255, 68, 0.1);
+            border: 1px solid rgba(0, 255, 68, 0.2);
+            transition: all 0.3s;
+        }
+        .btn-back:hover {
+            background: rgba(0, 255, 68, 0.2);
+            transform: translateY(-2px);
+        }
+        .btn-new {
+            background: #00ff44;
+            color: #000;
+            padding: 6px 16px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 68, 0.3);
+        }
+        .btn-clear-all {
+            background: rgba(255, 68, 68, 0.15);
+            color: #ff4444;
+            padding: 6px 14px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-clear-all:hover {
+            background: rgba(255, 68, 68, 0.25);
+            transform: translateY(-2px);
+        }
+
+        /* ============ HISTORY LIST ============ */
         .history-list { background: rgba(18, 22, 35, 0.5); border-radius: 16px; overflow: hidden; }
-        .history-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .history-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; }
         .history-item:hover { background: rgba(0, 255, 68, 0.05); }
         .history-item img { width: 100px; height: 60px; object-fit: cover; border-radius: 8px; }
         .history-info { flex: 1; }
         .history-title { font-size: 0.9rem; font-weight: 500; }
         .history-meta { font-size: 0.7rem; color: #888; }
         .history-quality { color: #00ff44; font-size: 0.8rem; font-weight: 600; }
+
+        /* ============ DELETE BUTTON ============ */
+        .history-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: #555;
+            cursor: pointer;
+            padding: 8px 10px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        .delete-btn:hover {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.15);
+            transform: scale(1.1);
+        }
+        .delete-btn i {
+            pointer-events: none;
+        }
+
+        /* ============ EMPTY STATE ============ */
         .empty-state { text-align: center; padding: 3rem; color: #555; }
-        .back-link { color: #00ff44; text-decoration: none; display: inline-block; margin-bottom: 1rem; }
-        @media (max-width: 768px) { .container { padding: 1rem; } .navbar { flex-direction: column; text-align: center; } .history-item { flex-wrap: wrap; } }
+        .empty-state i { font-size: 3rem; color: #333; margin-bottom: 1rem; display: block; }
+        .empty-state a { color: #00ff44; margin-top: 1rem; display: inline-block; text-decoration: none; }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .navbar { flex-direction: column; text-align: center; }
+            .history-item { flex-wrap: wrap; }
+            .history-header { flex-direction: column; align-items: stretch; text-align: center; }
+            .header-actions { justify-content: center; flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Navigation -->
         <nav class="navbar">
             <div class="logo">bot<span class="logo-accent">DL</span></div>
             <div class="nav-links">
@@ -50,30 +161,150 @@
                 <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </div>
         </nav>
-        
-        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
-        <div class="section-title">📜 Download History</div>
-        
+
+        <!-- History Header -->
+        <div class="history-header">
+            <div class="section-title">📜 Download History</div>
+            <div class="header-actions">
+                <a href="/dashboard" class="btn-back"><i class="fas fa-arrow-left"></i> Back</a>
+                <a href="/" class="btn-new"><i class="fas fa-plus"></i> New Download</a>
+                {% if history %}
+                <button class="btn-clear-all" onclick="clearAllHistory()">
+                    <i class="fas fa-trash-alt"></i> Clear All
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- History List -->
         <div class="history-list">
             {% if history %}
                 {% for item in history %}
-                <div class="history-item">
-                    <img src="{{ item.video_thumbnail }}" alt="">
+                <div class="history-item" id="history-{{ item.id }}">
+                    <img src="{{ item.video_thumbnail }}" alt="Thumbnail" onerror="this.src='https://placehold.co/100x60/1a1a2a/ffffff?text=No+Image'">
                     <div class="history-info">
                         <div class="history-title">{{ item.video_title[:60] }}</div>
                         <div class="history-meta">{{ item.download_date.strftime('%Y-%m-%d %H:%M:%S') }}</div>
                     </div>
                     <div class="history-quality">{{ item.video_quality or '1080p' }}</div>
+                    <div class="history-actions">
+                        <button class="delete-btn" onclick="deleteHistory({{ item.id }})" title="Delete this entry">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <i class="fas fa-history" style="font-size: 3rem; color: #333; margin-bottom: 1rem; display: block;"></i>
+                    <i class="fas fa-history"></i>
                     <p>No download history yet.</p>
-                    <a href="/" style="color: #00ff44; margin-top: 1rem; display: inline-block;">Start Downloading →</a>
+                    <a href="/">Start Downloading →</a>
                 </div>
             {% endif %}
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <script>
+        // ============ TOAST FUNCTION ============
+        function showToast(message, isError = false) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<span>${isError ? '⚠️ ' : '✅ '}${message}</span>`;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${isError ? '#2a1a1a' : '#0a2e1a'};
+                padding: 12px 24px;
+                border-radius: 40px;
+                border-left: 3px solid ${isError ? '#ff4444' : '#00ff44'};
+                color: white;
+                font-size: 0.9rem;
+                z-index: 1000;
+                animation: slideUp 0.3s ease;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // ============ DELETE SINGLE HISTORY ============
+        async function deleteHistory(historyId) {
+            if (!confirm('Are you sure you want to delete this download from history?')) return;
+
+            try {
+                const response = await fetch(`/api/history/${historyId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    const item = document.getElementById(`history-${historyId}`);
+                    if (item) {
+                        item.style.opacity = '0';
+                        item.style.transition = 'opacity 0.3s';
+                        setTimeout(() => item.remove(), 300);
+                    }
+                    showToast('✅ History entry deleted!');
+                    
+                    // If no items left, refresh page to show empty state
+                    const remaining = document.querySelectorAll('.history-item');
+                    if (remaining.length === 0) {
+                        setTimeout(() => location.reload(), 500);
+                    }
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || '❌ Failed to delete', true);
+                }
+            } catch (error) {
+                showToast('❌ Error deleting entry', true);
+            }
+        }
+
+        // ============ CLEAR ALL HISTORY ============
+        async function clearAllHistory() {
+            if (!confirm('⚠️ Are you sure you want to delete ALL download history? This cannot be undone!')) return;
+
+            try {
+                const response = await fetch('/api/history/clear', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    showToast('✅ All history cleared!');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || '❌ Failed to clear history', true);
+                }
+            } catch (error) {
+                showToast('❌ Error clearing history', true);
+            }
+        }
+
+        // ============ ADD CSS ANIMATION ============
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateX(-50%) translateY(50px); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+            #toastContainer {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
