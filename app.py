@@ -325,7 +325,7 @@ def download():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ============ DASHBOARD ROUTES (FIXED) ============
+# ============ DASHBOARD ROUTES ============
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -426,13 +426,14 @@ def profile_page():
 with app.app_context():
     init_db()
 
+# ============ RUN APP ============
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    import os
+    port = int(os.environ.get("PORT", 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader (FULLY FIXED)")
+    print("🎬 botDL - Video Downloader")
     print(f"📍 Server: http://127.0.0.1:{port}")
     print("🔐 Google Authentication Enabled")
     print("✅ Video downloads now include audio!")
-    print("✅ Dashboard routes fixed!")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
