@@ -3,31 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="botDL - Download videos from YouTube, TikTok, Instagram, Facebook in up to 4K quality. Fast, free, and easy to use.">
-    <meta name="keywords" content="video downloader, youtube downloader, tiktok downloader, instagram downloader">
-    <meta name="author" content="Mohamed Watitu">
-    <title>botDL — Professional Video Downloader</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <title>botDL - Video Downloader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
-    <!-- Animated Background -->
-    <div class="bg-gradient"></div>
-    <div class="noise"></div>
+    <div class="bg-dark"></div>
     
     <div class="app">
-        <!-- Premium Navigation -->
-        <nav class="navbar glass">
+        <!-- ============ NAVIGATION ============ -->
+        <nav class="navbar">
             <div class="nav-container">
                 <div class="logo">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M4 16l4-4-4-4m12 8l-4-4 4-4"/>
-                        <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    </svg>
-                    <span>bot<span class="logo-accent">DL</span></span>
+                    <span class="logo-icon">⬇️</span>
+                    bot<span class="logo-green">DL</span>
                 </div>
                 <div class="nav-links">
                     <a href="#features">Features</a>
@@ -40,288 +30,186 @@
                         <span class="animated-name" id="animatedName">Mohamed Watitu</span>
                     </div>
                     
-                    <!-- ============ AUTH SECTION - FIXED ============ -->
+                    <!-- AUTH -->
                     {% if user %}
-                        <!-- User is logged in -->
-                        <div class="user-menu">
-                            <div class="user-avatar-wrapper">
-                                <img src="{{ user.picture }}" class="user-avatar" alt="{{ user.name }}">
-                                <span class="user-status online"></span>
-                            </div>
-                            <span class="user-name">{{ user.name.split()[0] }}</span>
-                            <i class="fas fa-chevron-down user-chevron"></i>
-                            <div class="user-dropdown">
-                                <div class="dropdown-header">
-                                    <img src="{{ user.picture }}" alt="">
-                                    <div>
-                                        <strong>{{ user.name }}</strong>
-                                        <span>{{ user.email }}</span>
-                                    </div>
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <a href="{{ url_for('dashboard') }}">
-                                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                                </a>
-                                <a href="{{ url_for('history_page') }}">
-                                    <i class="fas fa-history"></i> Download History
-                                </a>
-                                <a href="{{ url_for('favorites_page') }}">
-                                    <i class="fas fa-heart"></i> Favorites
-                                </a>
-                                <a href="{{ url_for('profile_page') }}">
-                                    <i class="fas fa-user"></i> Profile
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <a href="{{ url_for('logout') }}" class="logout-link">
-                                    <i class="fas fa-sign-out-alt"></i> Sign Out
-                                </a>
-                            </div>
+                    <div class="user-menu" id="userMenu">
+                        <img src="{{ user.picture }}" class="user-avatar" alt="{{ user.name }}">
+                        <span class="user-name">{{ user.name.split()[0] }}</span>
+                        <i class="fas fa-chevron-down"></i>
+                        <div class="dropdown">
+                            <a href="/dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                            <a href="/dashboard/history"><i class="fas fa-history"></i> History</a>
+                            <a href="/dashboard/favorites"><i class="fas fa-heart"></i> Favorites</a>
+                            <a href="/dashboard/profile"><i class="fas fa-user"></i> Profile</a>
+                            <hr>
+                            <a href="/logout" class="text-red"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
+                    </div>
                     {% else %}
-                        <!-- User is not logged in -->
-                        <div class="auth-buttons">
-                            <a href="{{ url_for('login') }}" class="btn-login">
-                                <i class="fas fa-sign-in-alt"></i> Sign In
-                            </a>
-                            <a href="{{ url_for('login') }}" class="btn-signup">
-                                <i class="fas fa-user-plus"></i> Create Account
-                            </a>
-                        </div>
+                    <div class="auth-btns">
+                        <a href="/login" class="btn-outline">Sign In</a>
+                        <a href="/login" class="btn-green">Create Account</a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </nav>
 
-        <!-- Hero Section -->
+        <!-- ============ HERO ============ -->
         <section class="hero">
-            <div class="hero-badge">
-                <span class="badge-dot"></span>
-                Free & Unlimited
-            </div>
-            <h1 class="hero-title">
-                Download Videos from<br>
-                <span class="gradient-text">Any Platform</span>
-            </h1>
-            <p class="hero-subtitle">
-                The fastest way to download videos from YouTube, TikTok, Instagram, 
-                Facebook and more. Up to 4K quality, completely free.
-            </p>
+            <div class="hero-badge">⚡ Free & Unlimited</div>
+            <h1>Download Videos from <span class="text-green">Any Platform</span></h1>
+            <p class="hero-sub">YouTube • TikTok • Instagram • Facebook • Twitter</p>
             
-            <!-- Premium URL Input -->
-            <div class="url-container glass">
-                <div class="url-input-wrapper">
-                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                    </svg>
+            <div class="url-box">
+                <div class="url-input-wrap">
+                    <i class="fas fa-link"></i>
                     <input type="text" id="urlInput" placeholder="Paste video link here...">
-                    <button id="pasteBtn" class="paste-btn" title="Paste from clipboard">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                        </svg>
-                    </button>
+                    <button id="pasteBtn" class="paste-btn" title="Paste"><i class="fas fa-paste"></i></button>
                 </div>
-                <button id="analyzeBtn" class="analyze-btn">
-                    <span>Analyze Video</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                    <div class="btn-loader"></div>
-                </button>
+                <button id="analyzeBtn" class="btn-analyze">Analyze Video</button>
             </div>
-
-            <!-- Floating Elements -->
-            <div class="floating-elements">
-                <div class="float-card float-1">✨ 4K Quality</div>
-                <div class="float-card float-2">⚡ Lightning Fast</div>
-                <div class="float-card float-3">🔒 Secure</div>
+            
+            <div class="float-cards">
+                <span class="float-card">✨ 4K Quality</span>
+                <span class="float-card">⚡ Lightning Fast</span>
+                <span class="float-card">🔒 Secure</span>
             </div>
         </section>
 
-        <!-- Features Section -->
+        <!-- ============ FEATURES ============ -->
         <section class="features" id="features">
             <div class="section-header">
-                <span class="section-badge">Why Choose Us</span>
+                <span class="badge">Why Choose Us</span>
                 <h2>Premium Features</h2>
-                <p>Everything you need to download videos seamlessly</p>
             </div>
             <div class="features-grid">
-                <div class="feature-card glass">
-                    <div class="feature-icon">⚡</div>
+                <div class="feature-card">
+                    <div class="icon">⚡</div>
                     <h3>Lightning Fast</h3>
-                    <p>Download videos at incredible speeds with our optimized infrastructure</p>
+                    <p>Download at incredible speeds</p>
                 </div>
-                <div class="feature-card glass">
-                    <div class="feature-icon">🎯</div>
+                <div class="feature-card">
+                    <div class="icon">🎯</div>
                     <h3>Multiple Platforms</h3>
-                    <p>Support for YouTube, TikTok, Instagram, Facebook, Twitter and more</p>
+                    <p>YouTube, TikTok, Instagram, Facebook</p>
                 </div>
-                <div class="feature-card glass">
-                    <div class="feature-icon">🎬</div>
-                    <h3>Up to 4K Quality</h3>
-                    <p>Download in 144p, 360p, 720p, 1080p, 2K, and 4K resolutions</p>
+                <div class="feature-card">
+                    <div class="icon">🎬</div>
+                    <h3>Up to 4K</h3>
+                    <p>Any quality you want</p>
                 </div>
-                <div class="feature-card glass">
-                    <div class="feature-icon">🔒</div>
+                <div class="feature-card">
+                    <div class="icon">🔒</div>
                     <h3>Secure & Private</h3>
-                    <p>Your privacy is our priority. No logs, no tracking</p>
+                    <p>No logs, no tracking</p>
                 </div>
-                <div class="feature-card glass">
-                    <div class="feature-icon">♾️</div>
-                    <h3>Unlimited Usage</h3>
-                    <p>No daily limits, download as many videos as you want</p>
+                <div class="feature-card">
+                    <div class="icon">♾️</div>
+                    <h3>Unlimited</h3>
+                    <p>No daily limits</p>
                 </div>
-                <div class="feature-card glass">
-                    <div class="feature-icon">☁️</div>
+                <div class="feature-card">
+                    <div class="icon">☁️</div>
                     <h3>Cloud Powered</h3>
-                    <p>Powered by high-performance cloud infrastructure</p>
+                    <p>High-performance infrastructure</p>
                 </div>
             </div>
         </section>
 
-        <!-- Platforms Section -->
+        <!-- ============ PLATFORMS ============ -->
         <section class="platforms" id="platforms">
             <div class="section-header">
-                <span class="section-badge">Supported Platforms</span>
-                <h2>Works With All Major Platforms</h2>
-                <p>Download from your favorite social media platforms</p>
+                <span class="badge">Supported</span>
+                <h2>All Major Platforms</h2>
             </div>
             <div class="platforms-grid">
-                <div class="platform-card glass"><span>▶️</span> YouTube</div>
-                <div class="platform-card glass"><span>🎵</span> TikTok</div>
-                <div class="platform-card glass"><span>📸</span> Instagram</div>
-                <div class="platform-card glass"><span>📘</span> Facebook</div>
-                <div class="platform-card glass"><span>🐦</span> Twitter</div>
-                <div class="platform-card glass"><span>🎥</span> Vimeo</div>
+                <span class="platform">▶️ YouTube</span>
+                <span class="platform">🎵 TikTok</span>
+                <span class="platform">📸 Instagram</span>
+                <span class="platform">📘 Facebook</span>
+                <span class="platform">🐦 Twitter</span>
+                <span class="platform">🎥 Vimeo</span>
             </div>
         </section>
 
-        <!-- Main Content Area -->
-        <main class="main-content" id="dashboard">
+        <!-- ============ MAIN CONTENT ============ -->
+        <main class="main-content">
             <!-- Welcome Banner -->
-            <div class="welcome-banner glass">
-                <div class="welcome-icon">🎉</div>
-                <div class="welcome-text">
+            <div class="welcome-banner">
+                <span class="welcome-icon">🎉</span>
+                <div>
                     <h4>Welcome to botDL!</h4>
-                    <p>Paste any video link above to start downloading. Free & unlimited!</p>
+                    <p>Paste any link above to start downloading. Free & unlimited!</p>
                 </div>
             </div>
 
-            <!-- Loading Skeleton -->
-            <div class="skeleton-card" id="skeleton">
-                <div class="skeleton-thumb"></div>
-                <div class="skeleton-info">
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line short"></div>
-                    <div class="skeleton-line short"></div>
+            <!-- Skeleton -->
+            <div class="skeleton" id="skeleton">
+                <div class="sk-thumb"></div>
+                <div class="sk-info">
+                    <div class="sk-line"></div>
+                    <div class="sk-line short"></div>
                 </div>
             </div>
 
-            <!-- Video Analysis Card -->
-            <div class="analysis-card glass" id="videoPreview" style="display: none;">
-                <div class="card-header">
-                    <div class="platform-badge" id="platform">YouTube</div>
-                    <button class="close-btn" id="closePreview">×</button>
+            <!-- Video Preview -->
+            <div class="video-preview" id="videoPreview" style="display:none;">
+                <div class="preview-header">
+                    <span class="platform-badge" id="platform">YouTube</span>
+                    <button id="closePreview" class="close-btn">×</button>
                 </div>
-                <div class="video-details">
-                    <div class="thumbnail-wrapper">
-                        <img id="thumbnail" src="" alt="Video thumbnail">
-                        <span class="duration" id="duration">--:--</span>
-                    </div>
-                    <div class="video-info">
-                        <h3 id="title" class="video-title">Video Title</h3>
-                        <div class="video-meta">
-                            <span class="uploader" id="uploader">—</span>
-                            <span class="views" id="views">— views</span>
+                <div class="preview-body">
+                    <img id="thumbnail" src="" alt="Thumbnail">
+                    <div>
+                        <h3 id="title">Video Title</h3>
+                        <div class="meta">
+                            <span id="duration">--:--</span>
+                            <span id="uploader">—</span>
+                            <span id="views">— views</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Quality Selector -->
-            <div class="quality-section" id="qualitySection" style="display: none;">
-                <div class="section-header-sm">
-                    <h3>Download Options</h3>
-                    <span class="quality-note">Select your preferred quality</span>
-                </div>
+            <div class="quality-section" id="qualitySection" style="display:none;">
+                <h3>Select Quality</h3>
                 <div class="quality-grid" id="qualityGrid"></div>
             </div>
 
-            <!-- Download Button & Progress -->
-            <div class="download-section" id="downloadSection" style="display: none;">
-                <button class="download-btn" id="downloadBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download Video
-                </button>
-                
-                <div class="progress-wrapper" id="progressContainer">
-                    <div class="progress-header">
-                        <span class="progress-label" id="progressLabel">Preparing download...</span>
-                        <span class="progress-percent" id="progressPercent">0%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                    <div class="progress-stats">
-                        <span id="downloadSpeed">— MB/s</span>
-                        <span id="timeRemaining">— remaining</span>
+            <!-- Download -->
+            <div class="download-section" id="downloadSection" style="display:none;">
+                <button id="downloadBtn" class="btn-download">⬇️ Download Now</button>
+                <div class="progress-wrap" id="progressContainer" style="display:none;">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <div class="progress-text">
+                        <span id="progressLabel">Downloading...</span>
+                        <span id="progressPercent">0%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Dashboard Section -->
-            <div class="dashboard">
-                <div class="dashboard-header">
+            <!-- History -->
+            <div class="history-section">
+                <div class="history-header">
                     <h3>Download History</h3>
-                    <button class="clear-history" id="clearHistoryBtn">Clear All</button>
+                    <button id="clearHistoryBtn" class="clear-btn">Clear All</button>
                 </div>
-                <div class="history-list" id="historyList">
-                    <div class="empty-history">No downloads yet. Start by pasting a video link above.</div>
+                <div id="historyList" class="history-list">
+                    <div class="empty-state">No downloads yet</div>
                 </div>
             </div>
         </main>
 
-        <!-- Footer -->
+        <!-- ============ FOOTER ============ -->
         <footer class="footer">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="logo">bot<span class="logo-accent">DL</span></div>
-                    <p>The fastest video downloader on the web</p>
-                </div>
-                <div class="footer-links">
-                    <div class="link-group">
-                        <h4>Product</h4>
-                        <a href="#features">Features</a>
-                        <a href="#platforms">Platforms</a>
-                        <a href="#dashboard">Dashboard</a>
-                    </div>
-                    <div class="link-group">
-                        <h4>Legal</h4>
-                        <a href="#">Terms of Service</a>
-                        <a href="#">Privacy Policy</a>
-                        <a href="#">DMCA</a>
-                    </div>
-                    <div class="link-group">
-                        <h4>Connect</h4>
-                        <a href="#">GitHub</a>
-                        <a href="#">Twitter</a>
-                        <a href="#">Contact</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2026 botDL. All rights reserved. Powered by Mohamed Watitu</p>
-            </div>
+            <p>&copy; 2026 botDL. All rights reserved. Powered by Mohamed Watitu</p>
         </footer>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <!-- Toast -->
+    <div id="toastContainer"></div>
 
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
