@@ -6,43 +6,43 @@
     <meta name="description" content="botDL - Download videos from YouTube, TikTok, Instagram, Facebook in up to 4K quality. Fast, free, and easy to use.">
     <meta name="keywords" content="video downloader, youtube downloader, tiktok downloader, instagram downloader">
     <meta name="author" content="Mohamed Watitu">
-    <title>botDL — Professional Video Downloader</title>
+    <title>botDL — The Video Plunderer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
+
     <!-- Animated Background -->
+    <div class="bg-stars" id="bgStars"></div>
     <div class="bg-gradient"></div>
     <div class="noise"></div>
-    
+
     <div class="app">
-        <!-- Premium Navigation -->
+
+        <!-- ============ NAVIGATION ============ -->
         <nav class="navbar glass">
             <div class="nav-container">
                 <div class="logo">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M4 16l4-4-4-4m12 8l-4-4 4-4"/>
-                        <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    </svg>
+                    <i class="fas fa-dungeon logo-icon"></i>
                     <span>bot<span class="logo-accent">DL</span></span>
                 </div>
+
                 <div class="nav-links">
-                    <a href="#features">Features</a>
-                    <a href="#platforms">Platforms</a>
-                    <a href="#dashboard">Dashboard</a>
+                    <a href="#features">Arsenal</a>
+                    <a href="#platforms">Realms</a>
+                    <a href="#dashboard">Vault</a>
                 </div>
+
                 <div class="nav-right">
                     <div class="powered">
-                        <span>by</span>
-                        <span class="animated-name" id="animatedName">Mohamed Watitu</span>
+                        Forged by <span class="animated-name" id="animatedName">Mohamed Watitu</span>
                     </div>
-                    
-                    <!-- ============ AUTH SECTION - FIXED ============ -->
+
+                    <!-- ============ AUTH SECTION ============ -->
                     {% if user %}
-                        <!-- User is logged in -->
                         <div class="user-menu">
                             <div class="user-avatar-wrapper">
                                 <img src="{{ user.picture }}" class="user-avatar" alt="{{ user.name }}">
@@ -60,31 +60,30 @@
                                 </div>
                                 <div class="dropdown-divider"></div>
                                 <a href="{{ url_for('dashboard') }}">
-                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                    <i class="fas fa-chess-rook"></i> War Room
                                 </a>
                                 <a href="{{ url_for('history_page') }}">
-                                    <i class="fas fa-history"></i> Download History
+                                    <i class="fas fa-scroll"></i> Quest Log
                                 </a>
                                 <a href="{{ url_for('favorites_page') }}">
-                                    <i class="fas fa-heart"></i> Favorites
+                                    <i class="fas fa-gem"></i> Favourites
                                 </a>
                                 <a href="{{ url_for('profile_page') }}">
-                                    <i class="fas fa-user"></i> Profile
+                                    <i class="fas fa-user-knight"></i> Hero Profile
                                 </a>
                                 <div class="dropdown-divider"></div>
                                 <a href="{{ url_for('logout') }}" class="logout-link">
-                                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                                    <i class="fas fa-sign-out-alt"></i> Retreat
                                 </a>
                             </div>
                         </div>
                     {% else %}
-                        <!-- User is not logged in -->
                         <div class="auth-buttons">
                             <a href="{{ url_for('login') }}" class="btn-login">
                                 <i class="fas fa-sign-in-alt"></i> Sign In
                             </a>
                             <a href="{{ url_for('login') }}" class="btn-signup">
-                                <i class="fas fa-user-plus"></i> Create Account
+                                <i class="fas fa-shield-alt"></i> Join Guild
                             </a>
                         </div>
                     {% endif %}
@@ -92,119 +91,143 @@
             </div>
         </nav>
 
-        <!-- Hero Section -->
+        <!-- ============ HERO ============ -->
         <section class="hero">
             <div class="hero-badge">
                 <span class="badge-dot"></span>
-                Free & Unlimited
+                FREE QUEST — UNLIMITED PLUNDER
             </div>
             <h1 class="hero-title">
-                Download Videos from<br>
-                <span class="gradient-text">Any Platform</span>
+                Plunder Videos From<br>
+                <span class="gradient-text">Any Realm</span>
             </h1>
             <p class="hero-subtitle">
-                The fastest way to download videos from YouTube, TikTok, Instagram, 
-                Facebook and more. Up to 4K quality, completely free.
+                The mightiest tool to capture videos from YouTube, TikTok, Instagram,
+                Facebook and beyond. Legendary 4K quality. No toll required.
             </p>
-            
-            <!-- Premium URL Input -->
+
+            <!-- Quest Scroll URL Input -->
             <div class="url-container glass">
-                <div class="url-input-wrapper">
-                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                    </svg>
-                    <input type="text" id="urlInput" placeholder="Paste video link here...">
-                    <button id="pasteBtn" class="paste-btn" title="Paste from clipboard">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                        </svg>
+                <div class="scroll-header">
+                    <div class="scroll-dots">
+                        <span class="scroll-dot red"></span>
+                        <span class="scroll-dot amber"></span>
+                        <span class="scroll-dot green"></span>
+                    </div>
+                    <span class="scroll-label">— THE QUEST SCROLL —</span>
+                </div>
+                <div class="scroll-body">
+                    <div class="url-input-wrapper">
+                        <i class="fas fa-link input-icon"></i>
+                        <input type="text" id="urlInput" placeholder="Paste thy video link here...">
+                        <button id="pasteBtn" class="paste-btn" title="Paste from clipboard">
+                            <i class="fas fa-clipboard"></i>
+                        </button>
+                    </div>
+                    <button id="analyzeBtn" class="analyze-btn">
+                        <i class="fas fa-magic btn-icon"></i>
+                        <span>Seek!</span>
+                        <div class="btn-loader"></div>
                     </button>
                 </div>
-                <button id="analyzeBtn" class="analyze-btn">
-                    <span>Analyze Video</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                    <div class="btn-loader"></div>
-                </button>
             </div>
 
-            <!-- Floating Elements -->
+            <!-- Floating Rune Cards -->
             <div class="floating-elements">
-                <div class="float-card float-1">✨ 4K Quality</div>
-                <div class="float-card float-2">⚡ Lightning Fast</div>
-                <div class="float-card float-3">🔒 Secure</div>
+                <div class="float-card float-1"><i class="fas fa-crown"></i> 4K Spoils</div>
+                <div class="float-card float-2"><i class="fas fa-bolt"></i> Swifter than Light</div>
+                <div class="float-card float-3"><i class="fas fa-shield-alt"></i> Enchanted Safe</div>
             </div>
         </section>
 
-        <!-- Features Section -->
+        <!-- SECTION DIVIDER -->
+        <div class="adv-divider">
+            <div class="divider-line"></div>
+            <div class="divider-glyph">⚔</div>
+            <div class="divider-line"></div>
+        </div>
+
+        <!-- ============ FEATURES ============ -->
         <section class="features" id="features">
             <div class="section-header">
-                <span class="section-badge">Why Choose Us</span>
-                <h2>Premium Features</h2>
-                <p>Everything you need to download videos seamlessly</p>
+                <span class="section-badge">⚔ The Arsenal ⚔</span>
+                <h2>Legendary Powers</h2>
+                <p>Gifts bestowed upon the worthy adventurer</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card glass">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Lightning Fast</h3>
-                    <p>Download videos at incredible speeds with our optimized infrastructure</p>
+                    <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                    <h3>Lightning Haste</h3>
+                    <p>Download videos at godspeed with our battle-hardened infrastructure</p>
                 </div>
                 <div class="feature-card glass">
-                    <div class="feature-icon">🎯</div>
-                    <h3>Multiple Platforms</h3>
-                    <p>Support for YouTube, TikTok, Instagram, Facebook, Twitter and more</p>
+                    <div class="feature-icon"><i class="fas fa-map"></i></div>
+                    <h3>Many Realms</h3>
+                    <p>Venture into YouTube, TikTok, Instagram, Facebook, Twitter and more</p>
                 </div>
                 <div class="feature-card glass">
-                    <div class="feature-icon">🎬</div>
-                    <h3>Up to 4K Quality</h3>
-                    <p>Download in 144p, 360p, 720p, 1080p, 2K, and 4K resolutions</p>
+                    <div class="feature-icon"><i class="fas fa-gem"></i></div>
+                    <h3>4K Crystal Vision</h3>
+                    <p>144p through 8K — choose thy spoils wisely, brave soul</p>
                 </div>
                 <div class="feature-card glass">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Secure & Private</h3>
-                    <p>Your privacy is our priority. No logs, no tracking</p>
+                    <div class="feature-icon"><i class="fas fa-user-secret"></i></div>
+                    <h3>Cloaked &amp; Secret</h3>
+                    <p>No logs, no trackers. Your quests remain known only to you</p>
                 </div>
                 <div class="feature-card glass">
-                    <div class="feature-icon">♾️</div>
-                    <h3>Unlimited Usage</h3>
-                    <p>No daily limits, download as many videos as you want</p>
+                    <div class="feature-icon"><i class="fas fa-infinity"></i></div>
+                    <h3>Boundless Plunder</h3>
+                    <p>No daily limits. Download as many treasures as your heart desires</p>
                 </div>
                 <div class="feature-card glass">
-                    <div class="feature-icon">☁️</div>
-                    <h3>Cloud Powered</h3>
-                    <p>Powered by high-performance cloud infrastructure</p>
+                    <div class="feature-icon"><i class="fas fa-cloud"></i></div>
+                    <h3>Cloud Citadel</h3>
+                    <p>Powered by high-performance cloud magic across distant lands</p>
                 </div>
             </div>
         </section>
 
-        <!-- Platforms Section -->
+        <!-- SECTION DIVIDER -->
+        <div class="adv-divider">
+            <div class="divider-line"></div>
+            <div class="divider-glyph">🗺</div>
+            <div class="divider-line"></div>
+        </div>
+
+        <!-- ============ PLATFORMS ============ -->
         <section class="platforms" id="platforms">
             <div class="section-header">
-                <span class="section-badge">Supported Platforms</span>
-                <h2>Works With All Major Platforms</h2>
-                <p>Download from your favorite social media platforms</p>
+                <span class="section-badge">🗺 Known Realms 🗺</span>
+                <h2>Conquerable Kingdoms</h2>
+                <p>Lands where our banner flies victorious</p>
             </div>
             <div class="platforms-grid">
-                <div class="platform-card glass"><span>▶️</span> YouTube</div>
-                <div class="platform-card glass"><span>🎵</span> TikTok</div>
-                <div class="platform-card glass"><span>📸</span> Instagram</div>
-                <div class="platform-card glass"><span>📘</span> Facebook</div>
-                <div class="platform-card glass"><span>🐦</span> Twitter</div>
-                <div class="platform-card glass"><span>🎥</span> Vimeo</div>
+                <div class="platform-card glass"><i class="fab fa-youtube"></i> YouTube</div>
+                <div class="platform-card glass"><i class="fab fa-tiktok"></i> TikTok</div>
+                <div class="platform-card glass"><i class="fab fa-instagram"></i> Instagram</div>
+                <div class="platform-card glass"><i class="fab fa-facebook"></i> Facebook</div>
+                <div class="platform-card glass"><i class="fab fa-twitter"></i> Twitter</div>
+                <div class="platform-card glass"><i class="fas fa-video"></i> Vimeo</div>
             </div>
         </section>
 
-        <!-- Main Content Area -->
+        <!-- SECTION DIVIDER -->
+        <div class="adv-divider">
+            <div class="divider-line"></div>
+            <div class="divider-glyph">🏰</div>
+            <div class="divider-line"></div>
+        </div>
+
+        <!-- ============ MAIN CONTENT ============ -->
         <main class="main-content" id="dashboard">
+
             <!-- Welcome Banner -->
             <div class="welcome-banner glass">
-                <div class="welcome-icon">🎉</div>
+                <div class="welcome-icon">🏴‍☠️</div>
                 <div class="welcome-text">
-                    <h4>Welcome to botDL!</h4>
-                    <p>Paste any video link above to start downloading. Free & unlimited!</p>
+                    <h4>Hail, Adventurer! Welcome to botDL</h4>
+                    <p>Paste any video link above to begin your plunder. Free &amp; boundless!</p>
                 </div>
             </div>
 
@@ -230,7 +253,7 @@
                         <span class="duration" id="duration">--:--</span>
                     </div>
                     <div class="video-info">
-                        <h3 id="title" class="video-title">Video Title</h3>
+                        <h3 id="title" class="video-title">Treasure Identified</h3>
                         <div class="video-meta">
                             <span class="uploader" id="uploader">—</span>
                             <span class="views" id="views">— views</span>
@@ -242,8 +265,8 @@
             <!-- Quality Selector -->
             <div class="quality-section" id="qualitySection" style="display: none;">
                 <div class="section-header-sm">
-                    <h3>Download Options</h3>
-                    <span class="quality-note">Select your preferred quality</span>
+                    <h3><i class="fas fa-scroll"></i> Choose Thy Spoils</h3>
+                    <span class="quality-note">Select your quality rune</span>
                 </div>
                 <div class="quality-grid" id="qualityGrid"></div>
             </div>
@@ -251,17 +274,13 @@
             <!-- Download Button & Progress -->
             <div class="download-section" id="downloadSection" style="display: none;">
                 <button class="download-btn" id="downloadBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download Video
+                    <i class="fas fa-dragon"></i>
+                    Claim Your Treasure
                 </button>
-                
+
                 <div class="progress-wrapper" id="progressContainer">
                     <div class="progress-header">
-                        <span class="progress-label" id="progressLabel">Preparing download...</span>
+                        <span class="progress-label" id="progressLabel">Preparing the heist...</span>
                         <span class="progress-percent" id="progressPercent">0%</span>
                     </div>
                     <div class="progress-bar">
@@ -274,40 +293,48 @@
                 </div>
             </div>
 
-            <!-- Dashboard Section -->
+            <!-- Dashboard / History -->
             <div class="dashboard">
                 <div class="dashboard-header">
-                    <h3>Download History</h3>
-                    <button class="clear-history" id="clearHistoryBtn">Clear All</button>
+                    <h3><i class="fas fa-treasure-chest"></i> Spoils Vault</h3>
+                    <button class="clear-history" id="clearHistoryBtn">Purge All</button>
                 </div>
                 <div class="history-list" id="historyList">
-                    <div class="empty-history">No downloads yet. Start by pasting a video link above.</div>
+                    <div class="empty-history">⚔ No treasures claimed yet. Begin your quest above.</div>
                 </div>
             </div>
         </main>
 
-        <!-- Footer -->
+        <!-- ============ FOOTER ============ -->
         <footer class="footer">
+            <div class="adv-divider" style="margin-bottom:2rem;">
+                <div class="divider-line"></div>
+                <div class="divider-glyph">⚔</div>
+                <div class="divider-line"></div>
+            </div>
             <div class="footer-content">
                 <div class="footer-brand">
-                    <div class="logo">bot<span class="logo-accent">DL</span></div>
-                    <p>The fastest video downloader on the web</p>
+                    <div class="logo">
+                        <i class="fas fa-dungeon logo-icon"></i>
+                        bot<span class="logo-accent">DL</span>
+                    </div>
+                    <p>The mightiest downloader in the known world</p>
                 </div>
                 <div class="footer-links">
                     <div class="link-group">
-                        <h4>Product</h4>
-                        <a href="#features">Features</a>
-                        <a href="#platforms">Platforms</a>
-                        <a href="#dashboard">Dashboard</a>
+                        <h4>The Guild</h4>
+                        <a href="#features">Arsenal</a>
+                        <a href="#platforms">Realms</a>
+                        <a href="#dashboard">Vault</a>
                     </div>
                     <div class="link-group">
-                        <h4>Legal</h4>
-                        <a href="#">Terms of Service</a>
-                        <a href="#">Privacy Policy</a>
+                        <h4>The Law</h4>
+                        <a href="#">Guild Code</a>
+                        <a href="#">Privacy Rune</a>
                         <a href="#">DMCA</a>
                     </div>
                     <div class="link-group">
-                        <h4>Connect</h4>
+                        <h4>Allies</h4>
                         <a href="#">GitHub</a>
                         <a href="#">Twitter</a>
                         <a href="#">Contact</a>
@@ -315,7 +342,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 botDL. All rights reserved. Powered by Mohamed Watitu</p>
+                <p>⚔ 2026 botDL. All rights reserved. Forged by Mohamed Watitu ⚔</p>
             </div>
         </footer>
     </div>
