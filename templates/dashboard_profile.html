@@ -7,34 +7,207 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #05050A; color: #fff; min-height: 100vh; }
-        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .logo { font-size: 1.5rem; font-weight: 700; }
-        .logo-accent { color: #00ff44; }
-        .nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-        .nav-links a { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
-        .nav-links a:hover, .nav-links a.active { color: #00ff44; }
-        .user-info { display: flex; align-items: center; gap: 1rem; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
-        .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
-        .logout-btn:hover { background: #ff4444; color: white; }
-        .profile-card { background: rgba(18, 22, 35, 0.7); border-radius: 24px; padding: 2rem; text-align: center; }
-        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #00ff44; margin-bottom: 1rem; }
-        .profile-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.3rem; }
-        .profile-email { color: #888; margin-bottom: 1rem; }
-        .profile-stats { display: flex; justify-content: center; gap: 2rem; margin: 1.5rem 0; }
-        .stat { text-align: center; }
-        .stat-value { font-size: 1.5rem; font-weight: 700; color: #00ff44; }
-        .stat-label { font-size: 0.7rem; color: #888; }
-        .member-since { color: #555; font-size: 0.8rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
-        .back-link { color: #00ff44; text-decoration: none; display: inline-block; margin-bottom: 1rem; }
-        @media (max-width: 768px) { .container { padding: 1rem; } .navbar { flex-direction: column; text-align: center; } }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #ffffff; 
+            color: #000000; 
+            min-height: 100vh; 
+        }
+        
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+        }
+        
+        /* ============ NAVIGATION ============ */
+        .navbar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 1rem 0; 
+            margin-bottom: 2rem; 
+            flex-wrap: wrap; 
+            gap: 1rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: #000000;
+        }
+        
+        .logo-accent { 
+            color: #000000; 
+        }
+        
+        .nav-links { 
+            display: flex; 
+            gap: 1.5rem; 
+            flex-wrap: wrap; 
+        }
+        
+        .nav-links a { 
+            color: #666666; 
+            text-decoration: none; 
+            font-size: 0.9rem; 
+            font-weight: 500; 
+            transition: color 0.2s; 
+        }
+        
+        .nav-links a:hover, 
+        .nav-links a.active { 
+            color: #000000; 
+        }
+        
+        .user-info { 
+            display: flex; 
+            align-items: center; 
+            gap: 1rem; 
+        }
+        
+        .user-avatar { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 2px solid #000000; 
+        }
+        
+        .user-info span {
+            color: #000000;
+            font-weight: 500;
+        }
+        
+        .logout-btn { 
+            background: rgba(0, 0, 0, 0.05); 
+            color: #ff4444; 
+            padding: 0.5rem 1rem; 
+            border-radius: 40px; 
+            text-decoration: none; 
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 68, 68, 0.2);
+        }
+        
+        .logout-btn:hover { 
+            background: #ff4444; 
+            color: #ffffff; 
+        }
+        
+        /* ============ BACK LINK ============ */
+        .back-link { 
+            color: #000000; 
+            text-decoration: none; 
+            display: inline-block; 
+            margin-bottom: 1rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        .back-link:hover {
+            color: #555555;
+        }
+        
+        /* ============ PROFILE CARD ============ */
+        .profile-card { 
+            background: #f5f5f5; 
+            border-radius: 24px; 
+            padding: 2rem; 
+            text-align: center;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .profile-avatar { 
+            width: 120px; 
+            height: 120px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 3px solid #000000; 
+            margin-bottom: 1rem; 
+        }
+        
+        .profile-name { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            margin-bottom: 0.3rem;
+            color: #000000;
+        }
+        
+        .profile-email { 
+            color: #666666; 
+            margin-bottom: 1rem; 
+        }
+        
+        .profile-stats { 
+            display: flex; 
+            justify-content: center; 
+            gap: 2rem; 
+            margin: 1.5rem 0; 
+        }
+        
+        .stat { 
+            text-align: center; 
+        }
+        
+        .stat-value { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: #000000; 
+        }
+        
+        .stat-label { 
+            font-size: 0.7rem; 
+            color: #888888; 
+        }
+        
+        .member-since { 
+            color: #888888; 
+            font-size: 0.8rem; 
+            margin-top: 1rem; 
+            padding-top: 1rem; 
+            border-top: 1px solid rgba(0, 0, 0, 0.06); 
+        }
+        
+        .member-since i {
+            color: #000000;
+            margin-right: 6px;
+        }
+        
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) { 
+            .container { 
+                padding: 1rem; 
+            } 
+            
+            .navbar { 
+                flex-direction: column; 
+                text-align: center; 
+            }
+            
+            .user-info {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .profile-stats {
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Navigation -->
         <nav class="navbar">
             <div class="logo">bot<span class="logo-accent">DL</span></div>
             <div class="nav-links">
@@ -52,6 +225,7 @@
         
         <a href="/dashboard" class="back-link">← Back to Dashboard</a>
         
+        <!-- Profile Card -->
         <div class="profile-card">
             <img src="{{ user.picture }}" class="profile-avatar" alt="{{ user.name }}">
             <h1 class="profile-name">{{ user.name }}</h1>
