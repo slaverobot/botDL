@@ -7,41 +7,297 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #05050A; color: #fff; min-height: 100vh; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .logo { font-size: 1.5rem; font-weight: 700; }
-        .logo-accent { color: #00ff44; }
-        .nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-        .nav-links a { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
-        .nav-links a:hover, .nav-links a.active { color: #00ff44; }
-        .user-info { display: flex; align-items: center; gap: 1rem; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
-        .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
-        .logout-btn:hover { background: #ff4444; color: white; }
-        .welcome-banner { background: linear-gradient(135deg, rgba(0,255,68,0.1), rgba(0,204,136,0.05)); border-left: 3px solid #00ff44; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .stat-card { background: rgba(18, 22, 35, 0.7); border-radius: 20px; padding: 1.5rem; text-align: center; border: 1px solid rgba(255,255,255,0.08); }
-        .stat-icon { font-size: 2rem; color: #00ff44; margin-bottom: 0.5rem; }
-        .stat-value { font-size: 2rem; font-weight: 700; }
-        .stat-label { font-size: 0.8rem; color: #888; }
-        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.2rem; }
-        .downloads-list { background: rgba(18, 22, 35, 0.5); border-radius: 16px; overflow: hidden; }
-        .download-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .download-item:hover { background: rgba(0, 255, 68, 0.05); }
-        .download-item img { width: 80px; height: 50px; object-fit: cover; border-radius: 8px; }
-        .download-info { flex: 1; }
-        .download-title { font-size: 0.9rem; font-weight: 500; }
-        .download-meta { font-size: 0.7rem; color: #888; }
-        .download-quality { color: #00ff44; font-size: 0.8rem; font-weight: 600; }
-        .empty-state { text-align: center; padding: 3rem; color: #555; }
-        .link-green { color: #00ff44; text-decoration: none; font-size: 0.8rem; }
-        @media (max-width: 768px) { .container { padding: 1rem; } .navbar { flex-direction: column; text-align: center; } }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #ffffff; 
+            color: #000000; 
+            min-height: 100vh; 
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+        }
+        
+        /* ============ NAVIGATION ============ */
+        .navbar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 1rem 0; 
+            margin-bottom: 2rem; 
+            flex-wrap: wrap; 
+            gap: 1rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: #000000;
+        }
+        
+        .logo-accent { 
+            color: #000000; 
+        }
+        
+        .nav-links { 
+            display: flex; 
+            gap: 1.5rem; 
+            flex-wrap: wrap; 
+        }
+        
+        .nav-links a { 
+            color: #666666; 
+            text-decoration: none; 
+            font-size: 0.9rem; 
+            font-weight: 500; 
+            transition: color 0.2s; 
+        }
+        
+        .nav-links a:hover, 
+        .nav-links a.active { 
+            color: #000000; 
+        }
+        
+        .user-info { 
+            display: flex; 
+            align-items: center; 
+            gap: 1rem; 
+        }
+        
+        .user-avatar { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 2px solid #000000; 
+        }
+        
+        .user-info span {
+            color: #000000;
+            font-weight: 500;
+        }
+        
+        .logout-btn { 
+            background: rgba(0, 0, 0, 0.05); 
+            color: #ff4444; 
+            padding: 0.5rem 1rem; 
+            border-radius: 40px; 
+            text-decoration: none; 
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 68, 68, 0.15);
+        }
+        
+        .logout-btn:hover { 
+            background: #ff4444; 
+            color: #ffffff; 
+        }
+        
+        /* ============ WELCOME BANNER ============ */
+        .welcome-banner { 
+            background: #f5f5f5; 
+            border-left: 3px solid #000000; 
+            border-radius: 16px; 
+            padding: 1.5rem; 
+            margin-bottom: 2rem;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .welcome-banner h2 { 
+            font-size: 1.3rem; 
+            margin-bottom: 0.3rem;
+            color: #000000;
+        }
+        
+        .welcome-banner p { 
+            color: #666666; 
+            font-size: 0.9rem; 
+        }
+        
+        /* ============ STATS GRID ============ */
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 1.5rem; 
+            margin-bottom: 2rem; 
+        }
+        
+        .stat-card { 
+            background: #f5f5f5; 
+            border-radius: 20px; 
+            padding: 1.5rem; 
+            text-align: center; 
+            border: 1px solid #e8e8e8;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-icon { 
+            font-size: 2rem; 
+            color: #000000; 
+            margin-bottom: 0.5rem; 
+        }
+        
+        .stat-value { 
+            font-size: 2rem; 
+            font-weight: 700;
+            color: #000000; 
+        }
+        
+        .stat-label { 
+            font-size: 0.8rem; 
+            color: #888888; 
+        }
+        
+        /* ============ SECTION TITLE ============ */
+        .section-title { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 1rem; 
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #000000;
+        }
+        
+        .link-green { 
+            color: #000000; 
+            text-decoration: none; 
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        .link-green:hover {
+            color: #555555;
+            text-decoration: underline;
+        }
+        
+        /* ============ DOWNLOADS LIST ============ */
+        .downloads-list { 
+            background: #f5f5f5; 
+            border-radius: 16px; 
+            overflow: hidden;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .download-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 1rem; 
+            padding: 1rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: background 0.2s;
+        }
+        
+        .download-item:last-child {
+            border-bottom: none;
+        }
+        
+        .download-item:hover { 
+            background: #f0f0f0; 
+        }
+        
+        .download-item img { 
+            width: 80px; 
+            height: 50px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+        }
+        
+        .download-info { 
+            flex: 1; 
+        }
+        
+        .download-title { 
+            font-size: 0.9rem; 
+            font-weight: 500;
+            color: #000000;
+        }
+        
+        .download-meta { 
+            font-size: 0.7rem; 
+            color: #888888; 
+        }
+        
+        .download-quality { 
+            color: #000000; 
+            font-size: 0.8rem; 
+            font-weight: 600; 
+        }
+        
+        /* ============ EMPTY STATE ============ */
+        .empty-state { 
+            text-align: center; 
+            padding: 3rem; 
+            color: #888888; 
+        }
+        
+        .empty-state i {
+            color: #cccccc !important;
+        }
+        
+        .empty-state a { 
+            color: #000000 !important; 
+            margin-top: 1rem; 
+            display: inline-block; 
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .empty-state a:hover {
+            text-decoration: underline;
+        }
+        
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) { 
+            .container { 
+                padding: 1rem; 
+            } 
+            
+            .navbar { 
+                flex-direction: column; 
+                text-align: center; 
+            }
+            
+            .user-info {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .download-item {
+                flex-wrap: wrap;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Navigation -->
         <nav class="navbar">
             <div class="logo">bot<span class="logo-accent">DL</span></div>
             <div class="nav-links">
@@ -57,11 +313,13 @@
             </div>
         </nav>
         
+        <!-- Welcome Banner -->
         <div class="welcome-banner">
             <h2>Welcome back, {{ user.name }}! 👋</h2>
             <p>Ready to download more videos? Paste a link on the homepage to get started.</p>
         </div>
         
+        <!-- Stats -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-download"></i></div>
@@ -80,6 +338,7 @@
             </div>
         </div>
         
+        <!-- Recent Downloads -->
         <div class="section-title">
             <span>Recent Downloads</span>
             <a href="/dashboard/history" class="link-green">View All →</a>
@@ -89,7 +348,7 @@
             {% if recent_downloads %}
                 {% for download in recent_downloads %}
                 <div class="download-item">
-                    <img src="{{ download.video_thumbnail }}" alt="">
+                    <img src="{{ download.video_thumbnail }}" alt="Thumbnail" onerror="this.src='https://placehold.co/80x50/f0f0f0/cccccc?text=No+Image'">
                     <div class="download-info">
                         <div class="download-title">{{ download.video_title[:50] }}</div>
                         <div class="download-meta">{{ download.download_date.strftime('%Y-%m-%d %H:%M') }}</div>
@@ -99,9 +358,9 @@
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <i class="fas fa-download" style="font-size: 3rem; color: #333; margin-bottom: 1rem; display: block;"></i>
+                    <i class="fas fa-download" style="font-size: 3rem; color: #cccccc; margin-bottom: 1rem; display: block;"></i>
                     <p>No downloads yet. Start by downloading a video from the homepage!</p>
-                    <a href="/" style="color: #00ff44; margin-top: 1rem; display: inline-block;">Go to Homepage →</a>
+                    <a href="/">Go to Homepage →</a>
                 </div>
             {% endif %}
         </div>
