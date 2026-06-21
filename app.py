@@ -33,6 +33,12 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER'))
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
+#Health check
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    return 'OK', 200
+    #============================
 # ============ CORS ============
 CORS(app, supports_credentials=True, origins=[
     'https://botdl-3qgc.onrender.com',
