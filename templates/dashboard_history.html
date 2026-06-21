@@ -7,20 +7,102 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #05050A; color: #fff; min-height: 100vh; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .logo { font-size: 1.5rem; font-weight: 700; }
-        .logo-accent { color: #00ff44; }
-        .nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-        .nav-links a { color: #a0a0b0; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
-        .nav-links a:hover, .nav-links a.active { color: #00ff44; }
-        .user-info { display: flex; align-items: center; gap: 1rem; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #00ff44; }
-        .logout-btn { background: rgba(255, 68, 68, 0.2); color: #ff4444; padding: 0.5rem 1rem; border-radius: 40px; text-decoration: none; font-size: 0.8rem; }
-        .logout-btn:hover { background: #ff4444; color: white; }
-
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #ffffff; 
+            color: #000000; 
+            min-height: 100vh; 
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+        }
+        
+        /* ============ NAVIGATION ============ */
+        .navbar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 1rem 0; 
+            margin-bottom: 2rem; 
+            flex-wrap: wrap; 
+            gap: 1rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: #000000;
+        }
+        
+        .logo-accent { 
+            color: #000000; 
+        }
+        
+        .nav-links { 
+            display: flex; 
+            gap: 1.5rem; 
+            flex-wrap: wrap; 
+        }
+        
+        .nav-links a { 
+            color: #666666; 
+            text-decoration: none; 
+            font-size: 0.9rem; 
+            font-weight: 500; 
+            transition: color 0.2s; 
+        }
+        
+        .nav-links a:hover, 
+        .nav-links a.active { 
+            color: #000000; 
+        }
+        
+        .user-info { 
+            display: flex; 
+            align-items: center; 
+            gap: 1rem; 
+        }
+        
+        .user-avatar { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 2px solid #000000; 
+        }
+        
+        .user-info span {
+            color: #000000;
+            font-weight: 500;
+        }
+        
+        .logout-btn { 
+            background: rgba(0, 0, 0, 0.05); 
+            color: #ff4444; 
+            padding: 0.5rem 1rem; 
+            border-radius: 40px; 
+            text-decoration: none; 
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 68, 68, 0.15);
+        }
+        
+        .logout-btn:hover { 
+            background: #ff4444; 
+            color: #ffffff; 
+        }
+        
         /* ============ HISTORY HEADER ============ */
         .history-header {
             display: flex;
@@ -30,35 +112,43 @@
             flex-wrap: wrap;
             gap: 1rem;
         }
+        
         .history-header .section-title {
             font-size: 1.2rem;
             margin: 0;
+            color: #000000;
+            font-weight: 700;
         }
+        
         .header-actions {
             display: flex;
             gap: 0.8rem;
             align-items: center;
         }
+        
         .btn-back {
-            color: #00ff44;
+            color: #000000;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             display: flex;
             align-items: center;
             gap: 6px;
             padding: 6px 14px;
             border-radius: 40px;
-            background: rgba(0, 255, 68, 0.1);
-            border: 1px solid rgba(0, 255, 68, 0.2);
+            background: rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             transition: all 0.3s;
+            font-weight: 500;
         }
+        
         .btn-back:hover {
-            background: rgba(0, 255, 68, 0.2);
+            background: rgba(0, 0, 0, 0.08);
             transform: translateY(-2px);
         }
+        
         .btn-new {
-            background: #00ff44;
-            color: #000;
+            background: #000000;
+            color: #ffffff;
             padding: 6px 16px;
             border-radius: 40px;
             text-decoration: none;
@@ -71,76 +161,218 @@
             border: none;
             cursor: pointer;
         }
+        
         .btn-new:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 255, 68, 0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
         }
+        
         .btn-clear-all {
-            background: rgba(255, 68, 68, 0.15);
+            background: rgba(255, 68, 68, 0.08);
             color: #ff4444;
             padding: 6px 14px;
             border-radius: 40px;
             text-decoration: none;
             font-size: 0.8rem;
-            border: 1px solid rgba(255, 68, 68, 0.2);
+            border: 1px solid rgba(255, 68, 68, 0.15);
             cursor: pointer;
             transition: all 0.3s;
             display: flex;
             align-items: center;
             gap: 6px;
+            font-weight: 500;
         }
+        
         .btn-clear-all:hover {
-            background: rgba(255, 68, 68, 0.25);
+            background: rgba(255, 68, 68, 0.15);
             transform: translateY(-2px);
         }
-
+        
         /* ============ HISTORY LIST ============ */
-        .history-list { background: rgba(18, 22, 35, 0.5); border-radius: 16px; overflow: hidden; }
-        .history-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; }
-        .history-item:hover { background: rgba(0, 255, 68, 0.05); }
-        .history-item img { width: 100px; height: 60px; object-fit: cover; border-radius: 8px; }
-        .history-info { flex: 1; }
-        .history-title { font-size: 0.9rem; font-weight: 500; }
-        .history-meta { font-size: 0.7rem; color: #888; }
-        .history-quality { color: #00ff44; font-size: 0.8rem; font-weight: 600; }
-
+        .history-list { 
+            background: #f5f5f5; 
+            border-radius: 16px; 
+            overflow: hidden;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .history-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 1rem; 
+            padding: 1rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s; 
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-item:hover { 
+            background: #f0f0f0; 
+        }
+        
+        .history-item img { 
+            width: 100px; 
+            height: 60px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+        }
+        
+        .history-info { 
+            flex: 1; 
+        }
+        
+        .history-title { 
+            font-size: 0.9rem; 
+            font-weight: 500;
+            color: #000000;
+        }
+        
+        .history-meta { 
+            font-size: 0.7rem; 
+            color: #888888; 
+        }
+        
+        .history-quality { 
+            color: #000000; 
+            font-size: 0.8rem; 
+            font-weight: 600; 
+        }
+        
         /* ============ DELETE BUTTON ============ */
         .history-actions {
             display: flex;
             align-items: center;
             gap: 8px;
         }
+        
         .delete-btn {
             background: transparent;
             border: none;
-            color: #555;
+            color: #888888;
             cursor: pointer;
             padding: 8px 10px;
             border-radius: 8px;
             transition: all 0.3s;
             font-size: 1rem;
         }
+        
         .delete-btn:hover {
             color: #ff4444;
-            background: rgba(255, 68, 68, 0.15);
+            background: rgba(255, 68, 68, 0.1);
             transform: scale(1.1);
         }
+        
         .delete-btn i {
             pointer-events: none;
         }
-
+        
         /* ============ EMPTY STATE ============ */
-        .empty-state { text-align: center; padding: 3rem; color: #555; }
-        .empty-state i { font-size: 3rem; color: #333; margin-bottom: 1rem; display: block; }
-        .empty-state a { color: #00ff44; margin-top: 1rem; display: inline-block; text-decoration: none; }
-
+        .empty-state { 
+            text-align: center; 
+            padding: 3rem; 
+            color: #888888; 
+        }
+        
+        .empty-state i { 
+            font-size: 3rem; 
+            color: #cccccc; 
+            margin-bottom: 1rem; 
+            display: block; 
+        }
+        
+        .empty-state a { 
+            color: #000000; 
+            margin-top: 1rem; 
+            display: inline-block; 
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .empty-state a:hover {
+            text-decoration: underline;
+        }
+        
+        /* ============ TOAST ============ */
+        #toastContainer {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffff;
+            padding: 12px 24px;
+            border-radius: 40px;
+            border-left: 3px solid #000000;
+            color: #000000;
+            font-size: 0.9rem;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .toast.error {
+            border-left-color: #ff4444;
+            background: #fff5f5;
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0; 
+                transform: translateX(-50%) translateY(50px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(-50%) translateY(0); 
+            }
+        }
+        
         /* ============ RESPONSIVE ============ */
         @media (max-width: 768px) {
-            .container { padding: 1rem; }
-            .navbar { flex-direction: column; text-align: center; }
-            .history-item { flex-wrap: wrap; }
-            .history-header { flex-direction: column; align-items: stretch; text-align: center; }
-            .header-actions { justify-content: center; flex-wrap: wrap; }
+            .container { 
+                padding: 1rem; 
+            }
+            
+            .navbar { 
+                flex-direction: column; 
+                text-align: center; 
+            }
+            
+            .user-info {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .history-item { 
+                flex-wrap: wrap; 
+            }
+            
+            .history-header { 
+                flex-direction: column; 
+                align-items: stretch; 
+                text-align: center; 
+            }
+            
+            .header-actions { 
+                justify-content: center; 
+                flex-wrap: wrap; 
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .history-item img {
+                width: 100%;
+                height: auto;
+            }
         }
     </style>
 </head>
@@ -181,7 +413,7 @@
             {% if history %}
                 {% for item in history %}
                 <div class="history-item" id="history-{{ item.id }}">
-                    <img src="{{ item.video_thumbnail }}" alt="Thumbnail" onerror="this.src='https://placehold.co/100x60/1a1a2a/ffffff?text=No+Image'">
+                    <img src="{{ item.video_thumbnail }}" alt="Thumbnail" onerror="this.src='https://placehold.co/100x60/f0f0f0/cccccc?text=No+Image'">
                     <div class="history-info">
                         <div class="history-title">{{ item.video_title[:60] }}</div>
                         <div class="history-meta">{{ item.download_date.strftime('%Y-%m-%d %H:%M:%S') }}</div>
@@ -214,22 +446,8 @@
             if (!container) return;
             const toast = document.createElement('div');
             toast.className = 'toast';
+            if (isError) toast.classList.add('error');
             toast.innerHTML = `<span>${isError ? '⚠️ ' : '✅ '}${message}</span>`;
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: ${isError ? '#2a1a1a' : '#0a2e1a'};
-                padding: 12px 24px;
-                border-radius: 40px;
-                border-left: 3px solid ${isError ? '#ff4444' : '#00ff44'};
-                color: white;
-                font-size: 0.9rem;
-                z-index: 1000;
-                animation: slideUp 0.3s ease;
-                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            `;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 4000);
         }
@@ -288,23 +506,6 @@
                 showToast('❌ Error clearing history', true);
             }
         }
-
-        // ============ ADD CSS ANIMATION ============
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideUp {
-                from { opacity: 0; transform: translateX(-50%) translateY(50px); }
-                to { opacity: 1; transform: translateX(-50%) translateY(0); }
-            }
-            #toastContainer {
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 1000;
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>
