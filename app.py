@@ -10,11 +10,23 @@ import uuid
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import logging
+
+# ============ LOGGING CONFIG ============
+# Punguza logging ili isionekane kwa mtumiaji
+logging.basicConfig(level=logging.WARNING)
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
+
+# ============ HEALTH CHECK ============
+@app.route('/health')
+def health():
+    """Health check endpoint for Render - returns 200 OK"""
+    return '', 200
 
 # ============ SESSION / COOKIE CONFIG ============
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -35,7 +47,7 @@ def get_db_connection():
     try:
         return psycopg2.connect(DATABASE_URL)
     except Exception as e:
-        print(f"Database error: {e}")
+        log.error(f"Database error: {e}")
         return None
 
 def init_db():
@@ -59,6 +71,7 @@ def init_db():
             video_url TEXT,
             video_title TEXT,
             video_thumbnail TEXT,
+            video_quality TEXT,
             download_date TIMESTAMP DEFAULT NOW()
         )
     ''')
@@ -75,7 +88,7 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
-    print("✅ Database ready")
+    log.info("Database ready")
 
 # ============ LOGIN MANAGER ============
 login_manager = LoginManager()
@@ -145,7 +158,6 @@ def google_auth():
     try:
         token = google.authorize_access_token()
         if not token:
-            print("Auth error: no token received")
             return redirect(url_for('index'))
 
         user_info = token.get('userinfo')
@@ -155,7 +167,6 @@ def google_auth():
 
         user_id = user_info.get('sub')
         if not user_id:
-            print("Auth error: no 'sub' field in user_info")
             return redirect(url_for('index'))
 
         user_email = user_info.get('email', '')
@@ -182,9 +193,6 @@ def google_auth():
         return redirect(url_for('index'))
 
     except Exception as e:
-        import traceback
-        print(f"Auth error: {e}")
-        traceback.print_exc()
         return redirect(url_for('index'))
 
 @app.route('/logout')
@@ -262,7 +270,7 @@ def analyze():
                     cur.close()
                     conn.close()
             except Exception as db_err:
-                print(f"DB insert error: {db_err}")
+                log.error(f"DB insert error: {db_err}")
 
         return jsonify({
             'url': url,
@@ -354,7 +362,7 @@ def dashboard():
                              history_count=history_count,
                              member_since=created_at.strftime('%b %Y') if created_at else 'New')
     except Exception as e:
-        print(f"Dashboard error: {e}")
+        log.error(f"Dashboard error: {e}")
         return render_template('dashboard_home.html', user=current_user, recent_downloads=[], history_count=0, member_since='New')
 
 @app.route('/dashboard/history')
@@ -371,7 +379,7 @@ def history_page():
             conn.close()
         return render_template('dashboard_history.html', user=current_user, history=history)
     except Exception as e:
-        print(f"History error: {e}")
+        log.error(f"History error: {e}")
         return render_template('dashboard_history.html', user=current_user, history=[])
 
 @app.route('/dashboard/favorites')
@@ -388,7 +396,7 @@ def favorites_page():
             conn.close()
         return render_template('dashboard_favorites.html', user=current_user, favorites=favorites)
     except Exception as e:
-        print(f"Favorites error: {e}")
+        log.error(f"Favorites error: {e}")
         return render_template('dashboard_favorites.html', user=current_user, favorites=[])
 
 @app.route('/dashboard/profile')
@@ -419,7 +427,7 @@ def profile_page():
                              favorites_count=favorites_count,
                              created_at=created_at)
     except Exception as e:
-        print(f"Profile error: {e}")
+        log.error(f"Profile error: {e}")
         return render_template('dashboard_profile.html', user=current_user, history_count=0, favorites_count=0, created_at=None)
 
 # ============ DELETE HISTORY ROUTES ============
@@ -469,11 +477,4 @@ with app.app_context():
 if __name__ == '__main__':
     import os
     port = int(os.environ.get("PORT", 5000))
-    print("=" * 55)
-    print("🎬 botDL - Video Downloader")
-    print(f"📍 Server: http://127.0.0.1:{port}")
-    print("🔐 Google Authentication Enabled")
-    print("✅ Video downloads now include audio!")
-    print("✅ Delete history enabled!")
-    print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
