@@ -13,20 +13,20 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: #05050A;
     color: #FFFFFF;
-    line-height: 1.4;
+    line-height: 1.5;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* ============ BACKGROUND EFFECTS ============ */
+/* ============ BACKGROUND ============ */
 .bg-gradient {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at 20% 50%, rgba(0, 100, 255, 0.05), #05050A);
+    background: radial-gradient(circle at 20% 50%, rgba(68, 136, 255, 0.05), #05050A);
     z-index: -2;
 }
 
@@ -49,7 +49,7 @@ body {
     border-radius: 20px;
 }
 
-/* ============ TYPOGRAPHY - COMPACT ============ */
+/* ============ TYPOGRAPHY ============ */
 h1, h2, h3 {
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -58,6 +58,7 @@ h1, h2, h3 {
 h1 {
     font-size: 2.8rem;
     line-height: 1.1;
+    margin-bottom: 0.5rem;
 }
 
 h2 {
@@ -74,8 +75,16 @@ p, span, a, li {
     font-size: 0.85rem;
 }
 
+.text-blue {
+    color: #4488ff;
+}
+
+.text-green {
+    color: #4488ff;
+}
+
 .gradient-text {
-    background: linear-gradient(135deg, #4488ff, #0066ff, #4488ff);
+    background: linear-gradient(135deg, #4488ff, #0066ff);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -111,6 +120,7 @@ p, span, a, li {
     gap: 6px;
     font-size: 1.2rem;
     font-weight: 700;
+    color: #ffffff;
 }
 
 .logo svg {
@@ -142,6 +152,7 @@ p, span, a, li {
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .powered {
@@ -149,11 +160,27 @@ p, span, a, li {
     color: #666;
     display: flex;
     gap: 0.3rem;
+    align-items: center;
 }
 
 .animated-name {
     color: #4488ff;
     font-weight: 600;
+}
+
+/* ============ LETTER JUMPING ============ */
+.letter-jump {
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.letter-jump.jumping {
+    animation: jump 0.5s ease-in-out;
+}
+
+@keyframes jump {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
 }
 
 /* ============ AUTH BUTTONS ============ */
@@ -198,7 +225,7 @@ p, span, a, li {
     box-shadow: 0 5px 15px rgba(68, 136, 255, 0.3);
 }
 
-/* ============ USER MENU (Logged In) ============ */
+/* ============ USER MENU ============ */
 .user-menu {
     position: relative;
     display: flex;
@@ -213,7 +240,6 @@ p, span, a, li {
 
 .user-menu:hover {
     background: rgba(18, 22, 35, 0.8);
-    border-color: rgba(68, 136, 255, 0.3);
 }
 
 .user-avatar-wrapper {
@@ -258,7 +284,7 @@ p, span, a, li {
     transform: rotate(180deg);
 }
 
-/* User Dropdown */
+/* ============ USER DROPDOWN ============ */
 .user-dropdown {
     position: absolute;
     top: calc(100% + 8px);
@@ -359,6 +385,7 @@ p, span, a, li {
     margin-bottom: 1.5rem;
     background: linear-gradient(135deg, rgba(68, 136, 255, 0.1), rgba(0, 102, 255, 0.05));
     border-left: 3px solid #4488ff;
+    border-radius: 16px;
     flex-wrap: wrap;
     gap: 0.5rem;
 }
@@ -437,7 +464,7 @@ p, span, a, li {
     margin: 0 auto 1.5rem;
 }
 
-/* URL Input Premium */
+/* ============ URL INPUT ============ */
 .url-container {
     max-width: 650px;
     margin: 0 auto;
@@ -446,6 +473,7 @@ p, span, a, li {
     gap: 0.5rem;
     background: rgba(18, 22, 35, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
     transition: all 0.3s;
 }
 
@@ -485,9 +513,10 @@ p, span, a, li {
 .paste-btn {
     background: transparent;
     border: none;
-    padding: 0.3rem;
+    padding: 0.3rem 0.5rem;
     cursor: pointer;
     color: #888;
+    font-size: 0.9rem;
     transition: color 0.2s;
 }
 
@@ -515,6 +544,11 @@ p, span, a, li {
     box-shadow: 0 10px 25px rgba(68, 136, 255, 0.3);
 }
 
+.analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .btn-loader {
     width: 16px;
     height: 16px;
@@ -538,7 +572,7 @@ p, span, a, li {
     to { transform: rotate(360deg); }
 }
 
-/* Floating Elements */
+/* ============ FLOATING ELEMENTS ============ */
 .floating-elements {
     position: absolute;
     top: 50%;
@@ -603,19 +637,23 @@ p, span, a, li {
     font-size: 0.8rem;
 }
 
-/* Features Grid */
+/* ============ FEATURES ============ */
 .features {
     padding: 2.5rem 0;
 }
 
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
 }
 
 .feature-card {
     padding: 1.2rem;
+    background: rgba(18, 22, 35, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    text-align: center;
     transition: transform 0.3s, border-color 0.3s;
 }
 
@@ -632,6 +670,7 @@ p, span, a, li {
 .feature-card h3 {
     font-size: 0.9rem;
     margin-bottom: 0.3rem;
+    color: #ffffff;
 }
 
 .feature-card p {
@@ -640,7 +679,7 @@ p, span, a, li {
     line-height: 1.4;
 }
 
-/* Platforms Grid */
+/* ============ PLATFORMS ============ */
 .platforms {
     padding: 2.5rem 0;
 }
@@ -654,6 +693,9 @@ p, span, a, li {
 
 .platform-card {
     padding: 0.5rem 1.2rem;
+    background: rgba(18, 22, 35, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 30px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -675,7 +717,7 @@ p, span, a, li {
     padding: 1.5rem 0 2.5rem;
 }
 
-/* Skeleton */
+/* ============ SKELETON ============ */
 .skeleton-card {
     background: rgba(18, 22, 35, 0.5);
     border-radius: 16px;
@@ -720,10 +762,13 @@ p, span, a, li {
     100% { background-position: -200% 0; }
 }
 
-/* Analysis Card */
+/* ============ ANALYSIS CARD ============ */
 .analysis-card {
     margin-bottom: 1.2rem;
     overflow: hidden;
+    background: rgba(18, 22, 35, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
 }
 
 .card-header {
@@ -760,6 +805,7 @@ p, span, a, li {
     display: flex;
     gap: 0.8rem;
     padding: 0.8rem 1rem;
+    flex-wrap: wrap;
 }
 
 .thumbnail-wrapper {
@@ -794,6 +840,7 @@ p, span, a, li {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    color: #ffffff;
 }
 
 .video-meta {
@@ -801,9 +848,10 @@ p, span, a, li {
     color: #888;
     display: flex;
     gap: 0.6rem;
+    flex-wrap: wrap;
 }
 
-/* Quality Section */
+/* ============ QUALITY SECTION ============ */
 .quality-section {
     margin-bottom: 1.2rem;
 }
@@ -814,6 +862,7 @@ p, span, a, li {
 
 .section-header-sm h3 {
     font-size: 0.85rem;
+    color: #ffffff;
 }
 
 .quality-note {
@@ -836,6 +885,7 @@ p, span, a, li {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    color: #ffffff;
 }
 
 .quality-option:hover {
@@ -850,7 +900,7 @@ p, span, a, li {
     font-weight: 600;
 }
 
-/* Download Section */
+/* ============ DOWNLOAD SECTION ============ */
 .download-section {
     margin-top: 0.8rem;
 }
@@ -882,7 +932,7 @@ p, span, a, li {
     cursor: not-allowed;
 }
 
-/* Progress */
+/* ============ PROGRESS ============ */
 .progress-wrapper {
     margin-top: 0.8rem;
     padding: 0.6rem 0.8rem;
@@ -906,6 +956,7 @@ p, span, a, li {
     justify-content: space-between;
     margin-bottom: 0.3rem;
     font-size: 0.65rem;
+    color: #888;
 }
 
 .progress-bar {
@@ -931,7 +982,7 @@ p, span, a, li {
     color: #666;
 }
 
-/* Dashboard */
+/* ============ DASHBOARD / HISTORY ============ */
 .dashboard {
     margin-top: 1.5rem;
     padding-top: 0.8rem;
@@ -947,6 +998,7 @@ p, span, a, li {
 
 .dashboard-header h3 {
     font-size: 0.85rem;
+    color: #ffffff;
     margin: 0;
 }
 
@@ -1004,6 +1056,7 @@ p, span, a, li {
 .history-title {
     font-size: 0.7rem;
     font-weight: 500;
+    color: #ffffff;
 }
 
 .history-meta {
@@ -1035,6 +1088,7 @@ p, span, a, li {
 .footer-brand .logo {
     font-size: 1rem;
     margin-bottom: 0.3rem;
+    color: #ffffff;
 }
 
 .footer-brand p {
@@ -1074,7 +1128,7 @@ p, span, a, li {
     color: #444;
 }
 
-/* ============ TOAST NOTIFICATIONS ============ */
+/* ============ TOAST ============ */
 .toast-container {
     position: fixed;
     bottom: 20px;
@@ -1092,6 +1146,7 @@ p, span, a, li {
     margin-bottom: 0.3rem;
     animation: slideUp 0.3s ease;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    color: #ffffff;
 }
 
 .toast.error {
@@ -1136,6 +1191,7 @@ p, span, a, li {
     .url-container {
         flex-direction: column;
         padding: 0.8rem;
+        border-radius: 20px;
     }
     
     .analyze-btn {
