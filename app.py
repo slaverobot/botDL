@@ -53,6 +53,32 @@ def format_duration(seconds):
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
 
+def find_best_720p_format(formats):
+    """Find the best 720p format with audio. If not found, return best available with audio."""
+    # First, try to find 720p with audio
+    for f in formats:
+        height = f.get('height')
+        acodec = f.get('acodec', 'none')
+        vcodec = f.get('vcodec', 'none')
+        if height and vcodec != 'none' and acodec != 'none':
+            # Check if it's 720p (height between 700 and 730)
+            if 700 <= height <= 730:
+                return f
+    
+    # If no 720p, try to find the highest quality with audio
+    best = None
+    best_height = 0
+    for f in formats:
+        height = f.get('height')
+        acodec = f.get('acodec', 'none')
+        vcodec = f.get('vcodec', 'none')
+        if height and vcodec != 'none' and acodec != 'none':
+            if height > best_height:
+                best_height = height
+                best = f
+    
+    return best
+
 # ============ HEALTH CHECK ROUTE ============
 @app.route('/health')
 def health_check():
@@ -70,7 +96,7 @@ def index():
 # ============ VIDEO ANALYSIS ROUTE ============
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
-    """Analyze video and return available formats"""
+    """Analyze video and return available formats - 720p default"""
     data = request.get_json()
     url = data.get('url', '').strip()
     
@@ -95,36 +121,58 @@ def analyze_video():
         formats = []
         seen = set()
         
+        # Track available qualities
+        available_qualities = []
+        
         for f in info.get('formats', []):
             height = f.get('height')
             acodec = f.get('acodec', 'none')
             vcodec = f.get('vcodec', 'none')
             
-            # ** IMPORTANT: Only include formats with BOTH video and audio **
+            # Only include formats with BOTH video and audio
             if height and vcodec != 'none' and acodec != 'none':
                 label = f'{height}p'
                 if label not in seen:
                     seen.add(label)
+                    available_qualities.append(height)
                     formats.append({
                         'format_id': str(f.get('format_id')),
                         'label': label,
+                        'height': height,
                         'ext': f.get('ext', 'mp4'),
                         'filesize': f.get('filesize'),
                         'unavailable': False,
                         'has_audio': True
                     })
         
+        # Sort formats by height (highest first)
+        formats.sort(key=lambda x: x.get('height', 0), reverse=True)
+        
+        # Find if 720p is available
+        has_720p = any(700 <= f.get('height', 0) <= 730 for f in formats)
+        
+        # If no 720p, find the best available quality with audio
+        if not has_720p and formats:
+            best_format = formats[0]  # Highest quality available
+            best_format['default'] = True
+            best_format['label'] = f"{best_format.get('height', 0)}p (Best Available)"
+        
+        # Mark 720p as default if available
+        for f in formats:
+            if 700 <= f.get('height', 0) <= 730:
+                f['default'] = True
+                break
+        
         # Add MP3 audio option
         formats.append({
             'format_id': 'bestaudio/best',
             'label': 'MP3 Audio',
             'ext': 'mp3',
+            'height': 0,
             'filesize': None,
             'unavailable': False,
             'has_audio': True
         })
-        
-        formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 0, reverse=True)
         
         return jsonify({
             'title': info.get('title', 'Unknown Title'),
@@ -134,7 +182,8 @@ def analyze_video():
             'uploader': info.get('uploader', 'Unknown'),
             'view_count': info.get('view_count', 0),
             'url': url,
-            'formats': formats[:10]
+            'formats': formats[:12],
+            'has_720p': has_720p
         })
         
     except Exception as e:
@@ -144,7 +193,7 @@ def analyze_video():
 # ============ VIDEO DOWNLOAD ROUTE ============
 @app.route('/download', methods=['POST'])
 def download_video():
-    """Download video with selected format - WITH AUDIO"""
+    """Download video with selected format - 720p fallback if format fails"""
     data = request.get_json()
     url = data.get('url', '').strip()
     format_id = data.get('format_id', '')
@@ -158,44 +207,95 @@ def download_video():
     
     is_audio = format_id == 'bestaudio/best'
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'headers': YDL_HEADERS,
-        'user_agent': YDL_HEADERS['User-Agent'],
-        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
-    }
-    
-    if is_audio:
-        # Audio only - MP3
-        ydl_opts['format'] = 'bestaudio/best'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
-    else:
-        # Video with audio - Use best format with audio
-        # The format_id from analyze should already have audio
-        ydl_opts['format'] = format_id
-        
-        # If format doesn't have audio, merge with best audio
-        # This is a fallback to ensure audio
-        ydl_opts['format_sort'] = ['res:1080', 'codec:avc:m4a']
-        ydl_opts['merge_output_format'] = 'mp4'
-    
     try:
+        # First, get video info to find available formats
+        ydl_opts_info = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+            'headers': YDL_HEADERS,
+            'user_agent': YDL_HEADERS['User-Agent'],
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            if not info:
+                return jsonify({'error': 'Could not fetch video info'}), 500
+            
+            # Find the best 720p format for fallback
+            all_formats = info.get('formats', [])
+            fallback_format = None
+            
+            # Try to find 720p with audio
+            for f in all_formats:
+                height = f.get('height')
+                acodec = f.get('acodec', 'none')
+                vcodec = f.get('vcodec', 'none')
+                if height and vcodec != 'none' and acodec != 'none':
+                    if 700 <= height <= 730:
+                        fallback_format = f
+                        break
+            
+            # If no 720p, find best available with audio
+            if not fallback_format:
+                best_height = 0
+                for f in all_formats:
+                    height = f.get('height')
+                    acodec = f.get('acodec', 'none')
+                    vcodec = f.get('vcodec', 'none')
+                    if height and vcodec != 'none' and acodec != 'none':
+                        if height > best_height:
+                            best_height = height
+                            fallback_format = f
+        
+        # Prepare download options
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'headers': YDL_HEADERS,
+            'user_agent': YDL_HEADERS['User-Agent'],
+            'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
+            'format_sort': ['res:720', 'codec:avc:m4a'],
+            'merge_output_format': 'mp4',
+        }
+        
+        if is_audio:
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+        else:
+            # Try selected format first, if it fails, use fallback
+            ydl_opts['format'] = format_id
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            try:
+                info = ydl.extract_info(url, download=True)
+            except Exception as e:
+                # If download fails with selected format, try fallback
+                print(f"Download failed with format {format_id}, trying fallback...")
+                
+                if fallback_format and not is_audio:
+                    # Use fallback 720p format
+                    fallback_id = str(fallback_format.get('format_id'))
+                    ydl_opts['format'] = fallback_id
+                    
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl_fallback:
+                        info = ydl_fallback.extract_info(url, download=True)
+                else:
+                    raise e
             
             if not info:
                 return jsonify({'error': 'Download failed'}), 500
             
+            # Find downloaded file
             downloaded_file = None
             filename = ydl.prepare_filename(info)
             
             if is_audio:
-                # For audio, find .mp3 file
                 base = os.path.splitext(filename)[0]
                 for ext in ['.mp3', '.m4a', '.webm']:
                     test_file = base + ext
@@ -203,11 +303,9 @@ def download_video():
                         downloaded_file = test_file
                         break
             else:
-                # For video, check if file exists
                 if os.path.exists(filename):
                     downloaded_file = filename
                 else:
-                    # Try with different extensions
                     base = os.path.splitext(filename)[0]
                     for ext in ['.mp4', '.mkv', '.webm']:
                         test_file = base + ext
@@ -215,8 +313,8 @@ def download_video():
                             downloaded_file = test_file
                             break
             
-            # If still not found, search in download directory
             if not downloaded_file or not os.path.exists(downloaded_file):
+                # Search in download directory
                 for f in os.listdir(DOWNLOAD_DIR):
                     if info.get('title', '') in f:
                         downloaded_file = os.path.join(DOWNLOAD_DIR, f)
@@ -250,6 +348,35 @@ def download_video():
                 
     except Exception as e:
         print(f"Download error: {e}")
+        
+        # Final fallback: Try downloading with best format that has audio
+        try:
+            ydl_opts_fallback = {
+                'quiet': True,
+                'no_warnings': True,
+                'headers': YDL_HEADERS,
+                'user_agent': YDL_HEADERS['User-Agent'],
+                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
+                'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]',
+                'merge_output_format': 'mp4',
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
+                info = ydl.extract_info(url, download=True)
+                
+                if info:
+                    downloaded_file = ydl.prepare_filename(info)
+                    if os.path.exists(downloaded_file):
+                        safe_title = re.sub(r'[^\w\s-]', '', title_hint)[:50]
+                        return send_file(
+                            downloaded_file,
+                            as_attachment=True,
+                            download_name=f"{safe_title}.mp4",
+                            mimetype='video/mp4'
+                        )
+        except:
+            pass
+        
         return jsonify({'error': str(e)[:200]}), 500
 
 # ============ MP3 CONVERTER ROUTE ============
