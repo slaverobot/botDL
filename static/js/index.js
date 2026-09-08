@@ -47,7 +47,7 @@ const mp3ProgressPercent = document.getElementById('mp3ProgressPercent');
 let currentMp3Data = null;
 let selectedBitrate = '128';
 
-// ============= LETTER JUMPING ANIMATION (SMOOTH) =============
+// ============= LETTER JUMPING ANIMATION =============
 const fullName = 'Mohamed Watitu';
 let currentLetterIndex = 0;
 let animationInterval = null;
@@ -126,55 +126,58 @@ function showToast(message, isError = false) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-// ============= RENDER QUALITIES - 720p DEFAULT =============
+// ============= RENDER QUALITIES - ALL OPTIONS, 720p DEFAULT =============
 function renderQualities(formats) {
     if (!qualityGrid) return;
     qualityGrid.innerHTML = '';
     selectedFormat = null;
 
-    // Check if we have any formats
     if (!formats || formats.length === 0) {
         showToast('No formats available for this video', true);
         return;
     }
 
-    // Priority order: 720p first, then 1080p, then others
-    const qualityPriority = ['720p', '1080p', '480p', '360p', '240p', '144p', '2K', '4K', '8K'];
+    // Quality order - all options
+    const qualityOrder = ['144p', '240p', '360p', '480p', '720p', '1080p', '2K', '4K', '8K'];
     let defaultSelected = null;
 
-    // Separate formats
+    // Sort formats by quality order
     const sortedFormats = [];
     const remainingFormats = [];
-    const mp3Format = formats.find(f => f.label === 'MP3 Audio');
+    let mp3Format = null;
 
-    // Add formats in priority order
-    qualityPriority.forEach(priority => {
-        const found = formats.find(f => f.label === priority && f.has_audio !== false);
-        if (found && !sortedFormats.includes(found)) {
+    // First, add formats in quality order
+    qualityOrder.forEach(label => {
+        const found = formats.find(f => f.label === label && f.has_audio !== false);
+        if (found) {
             sortedFormats.push(found);
-            if (priority === '720p') {
+            if (label === '720p') {
                 defaultSelected = found;
             }
         }
     });
 
-    // Add remaining formats
+    // Add remaining formats (like MP3 Audio)
     formats.forEach(f => {
-        if (!sortedFormats.includes(f) && f.label !== 'MP3 Audio') {
-            remainingFormats.push(f);
+        if (!sortedFormats.includes(f)) {
+            if (f.label === 'MP3 Audio') {
+                mp3Format = f;
+            } else {
+                remainingFormats.push(f);
+            }
         }
     });
 
     // Sort remaining by height
     remainingFormats.sort((a, b) => {
-        const aHeight = parseInt(a.label.replace('p', ''));
-        const bHeight = parseInt(b.label.replace('p', ''));
+        const aHeight = parseInt(a.label.replace('p', '')) || 0;
+        const bHeight = parseInt(b.label.replace('p', '')) || 0;
         return bHeight - aHeight;
     });
 
-    // Combine: priority formats + remaining + MP3 at end
+    // Combine: sorted + remaining + MP3 at the end
     const finalFormats = [...sortedFormats, ...remainingFormats];
-    if (mp3Format && !finalFormats.includes(mp3Format)) {
+    if (mp3Format) {
         finalFormats.push(mp3Format);
     }
 
@@ -194,21 +197,22 @@ function renderQualities(formats) {
             div.innerHTML = `<span>${f.label}</span>`;
             div.onclick = () => showToast(`${f.label} not available`, true);
         } else {
-            const isDefault = f.label === '720p' || f.default === true;
+            const isDefault = f.label === '720p';
             const isSelected = defaultSelected && f === defaultSelected;
             
             div.innerHTML = `<span>${f.label}</span>`;
             
-            // Show default badge
+            // Show default badge for 720p
             if (isDefault) {
                 const badge = document.createElement('span');
-                badge.textContent = ' ✓';
+                badge.textContent = ' ✓ Default';
                 badge.style.color = '#4ADE80';
-                badge.style.fontSize = '12px';
+                badge.style.fontSize = '11px';
+                badge.style.marginLeft = '4px';
                 div.appendChild(badge);
             }
             
-            // Auto-select 720p or best available
+            // Auto-select 720p
             if (isSelected || isDefault) {
                 div.classList.add('active');
                 if (!selectedFormat) {
@@ -239,7 +243,6 @@ function renderQualities(formats) {
         }
     }
 
-    // Show selected format
     if (selectedFormat) {
         console.log('✅ Selected format:', selectedFormat.label);
         showToast(`✓ ${selectedFormat.label} selected`, false);
@@ -322,7 +325,6 @@ async function analyzeVideo() {
         if (uploader) uploader.textContent = data.uploader || 'Unknown';
         if (views) views.textContent = data.view_count ? `${data.view_count.toLocaleString()} views` : '— views';
 
-        // Render formats with 720p default
         renderQualities(data.formats || []);
 
         if (skeleton) skeleton.classList.remove('active');
@@ -511,7 +513,7 @@ if (downloadBtn) downloadBtn.addEventListener('click', startDownload);
 if (clearHistoryBtn) clearHistoryBtn.addEventListener('click', clearHistory);
 if (urlInput) urlInput.addEventListener('keypress', e => e.key === 'Enter' && analyzeVideo());
 
-// Smooth scroll for anchor links
+// Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
         e.preventDefault();
@@ -578,7 +580,7 @@ document.querySelectorAll('.quality-btn').forEach(btn => {
     });
 });
 
-// Paste button for converter
+// Paste button
 if (converterPasteBtn) {
     converterPasteBtn.addEventListener('click', async () => {
         try {
@@ -641,7 +643,7 @@ if (convertBtn) {
     });
 }
 
-// Download MP3 with progress
+// Download MP3
 if (downloadMp3Btn) {
     downloadMp3Btn.addEventListener('click', async () => {
         if (!currentMp3Data) {
@@ -709,7 +711,7 @@ if (downloadMp3Btn) {
     });
 }
 
-// Enter key for converter input
+// Enter key
 if (converterUrlInput) {
     converterUrlInput.addEventListener('keypress', e => {
         if (e.key === 'Enter') convertBtn?.click();
@@ -720,7 +722,6 @@ if (converterUrlInput) {
 initAnimatedName();
 renderHistory();
 
-// Expose functions globally
 window.analyzeVideo = analyzeVideo;
 window.startDownload = startDownload;
 window.clearHistory = clearHistory;
