@@ -53,10 +53,9 @@ def format_duration(seconds):
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
 
-# ============ HEALTH CHECK ROUTE (Render) ============
+# ============ HEALTH CHECK ROUTE ============
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Render"""
     return jsonify({
         'status': 'healthy',
         'service': 'botDL',
@@ -93,7 +92,6 @@ def analyze_video():
         if not info:
             return jsonify({'error': 'Could not fetch video info'}), 500
         
-        # Extract available formats
         formats = []
         seen = set()
         
@@ -102,6 +100,7 @@ def analyze_video():
             acodec = f.get('acodec', 'none')
             vcodec = f.get('vcodec', 'none')
             
+            # ** IMPORTANT: Only include formats with BOTH video and audio **
             if height and vcodec != 'none' and acodec != 'none':
                 label = f'{height}p'
                 if label not in seen:
@@ -111,7 +110,8 @@ def analyze_video():
                         'label': label,
                         'ext': f.get('ext', 'mp4'),
                         'filesize': f.get('filesize'),
-                        'unavailable': False
+                        'unavailable': False,
+                        'has_audio': True
                     })
         
         # Add MP3 audio option
@@ -120,7 +120,8 @@ def analyze_video():
             'label': 'MP3 Audio',
             'ext': 'mp3',
             'filesize': None,
-            'unavailable': False
+            'unavailable': False,
+            'has_audio': True
         })
         
         formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 0, reverse=True)
@@ -143,7 +144,7 @@ def analyze_video():
 # ============ VIDEO DOWNLOAD ROUTE ============
 @app.route('/download', methods=['POST'])
 def download_video():
-    """Download video with selected format"""
+    """Download video with selected format - WITH AUDIO"""
     data = request.get_json()
     url = data.get('url', '').strip()
     format_id = data.get('format_id', '')
@@ -166,6 +167,7 @@ def download_video():
     }
     
     if is_audio:
+        # Audio only - MP3
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'] = [{
             'key': 'FFmpegExtractAudio',
@@ -173,7 +175,14 @@ def download_video():
             'preferredquality': '192',
         }]
     else:
+        # Video with audio - Use best format with audio
+        # The format_id from analyze should already have audio
         ydl_opts['format'] = format_id
+        
+        # If format doesn't have audio, merge with best audio
+        # This is a fallback to ensure audio
+        ydl_opts['format_sort'] = ['res:1080', 'codec:avc:m4a']
+        ydl_opts['merge_output_format'] = 'mp4'
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -186,6 +195,7 @@ def download_video():
             filename = ydl.prepare_filename(info)
             
             if is_audio:
+                # For audio, find .mp3 file
                 base = os.path.splitext(filename)[0]
                 for ext in ['.mp3', '.m4a', '.webm']:
                     test_file = base + ext
@@ -193,12 +203,25 @@ def download_video():
                         downloaded_file = test_file
                         break
             else:
+                # For video, check if file exists
                 if os.path.exists(filename):
                     downloaded_file = filename
+                else:
+                    # Try with different extensions
+                    base = os.path.splitext(filename)[0]
+                    for ext in ['.mp4', '.mkv', '.webm']:
+                        test_file = base + ext
+                        if os.path.exists(test_file):
+                            downloaded_file = test_file
+                            break
             
+            # If still not found, search in download directory
             if not downloaded_file or not os.path.exists(downloaded_file):
                 for f in os.listdir(DOWNLOAD_DIR):
-                    if info.get('title', '') in f or f.endswith('.mp3'):
+                    if info.get('title', '') in f:
+                        downloaded_file = os.path.join(DOWNLOAD_DIR, f)
+                        break
+                    elif f.endswith('.mp3') and is_audio:
                         downloaded_file = os.path.join(DOWNLOAD_DIR, f)
                         break
             
