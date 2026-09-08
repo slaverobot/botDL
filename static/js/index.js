@@ -47,7 +47,7 @@ const mp3ProgressPercent = document.getElementById('mp3ProgressPercent');
 let currentMp3Data = null;
 let selectedBitrate = '128';
 
-// ============= LETTER JUMPING ANIMATION (SMOOTH & PERFORMANT) =============
+// ============= LETTER JUMPING ANIMATION (SMOOTH) =============
 const fullName = 'Mohamed Watitu';
 let currentLetterIndex = 0;
 let animationInterval = null;
@@ -57,7 +57,6 @@ const jumpColors = ['#4A8BFF', '#4DD0E1', '#4ADE80', '#4A8BFF', '#4DD0E1'];
 
 function jumpLetter(span, color) {
     if (!span) return;
-    // Improve performance
     span.style.willChange = 'transform, color';
     span.classList.add('jumping');
     span.style.color = color;
@@ -90,7 +89,6 @@ function jumpNextLetter() {
 function initAnimatedName() {
     if (!animatedNameElement) return;
     
-    // Prevent layout shift
     animatedNameElement.style.display = 'inline-flex';
     animatedNameElement.style.alignItems = 'center';
     animatedNameElement.style.gap = '1px';
@@ -128,43 +126,126 @@ function showToast(message, isError = false) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-// ============= RENDER QUALITIES =============
+// ============= RENDER QUALITIES - 720p DEFAULT =============
 function renderQualities(formats) {
     if (!qualityGrid) return;
     qualityGrid.innerHTML = '';
     selectedFormat = null;
 
-    const qualities = ['480p', '720p', '1080p', '2K', '4K', '8K'];
+    // Check if we have any formats
+    if (!formats || formats.length === 0) {
+        showToast('No formats available for this video', true);
+        return;
+    }
 
-    qualities.forEach(quality => {
-        const found = formats.find(f => f.label && f.label.includes(quality));
+    // Priority order: 720p first, then 1080p, then others
+    const qualityPriority = ['720p', '1080p', '480p', '360p', '240p', '144p', '2K', '4K', '8K'];
+    let defaultSelected = null;
+
+    // Separate formats
+    const sortedFormats = [];
+    const remainingFormats = [];
+    const mp3Format = formats.find(f => f.label === 'MP3 Audio');
+
+    // Add formats in priority order
+    qualityPriority.forEach(priority => {
+        const found = formats.find(f => f.label === priority && f.has_audio !== false);
+        if (found && !sortedFormats.includes(found)) {
+            sortedFormats.push(found);
+            if (priority === '720p') {
+                defaultSelected = found;
+            }
+        }
+    });
+
+    // Add remaining formats
+    formats.forEach(f => {
+        if (!sortedFormats.includes(f) && f.label !== 'MP3 Audio') {
+            remainingFormats.push(f);
+        }
+    });
+
+    // Sort remaining by height
+    remainingFormats.sort((a, b) => {
+        const aHeight = parseInt(a.label.replace('p', ''));
+        const bHeight = parseInt(b.label.replace('p', ''));
+        return bHeight - aHeight;
+    });
+
+    // Combine: priority formats + remaining + MP3 at end
+    const finalFormats = [...sortedFormats, ...remainingFormats];
+    if (mp3Format && !finalFormats.includes(mp3Format)) {
+        finalFormats.push(mp3Format);
+    }
+
+    // If no default selected, select first format
+    if (!defaultSelected && finalFormats.length > 0) {
+        defaultSelected = finalFormats[0];
+    }
+
+    // Render all formats
+    finalFormats.forEach((f, index) => {
         const div = document.createElement('div');
         div.className = 'quality-option';
-        div.innerHTML = `<span>${quality}</span>`;
-
-        if (!found || found.unavailable) {
+        
+        if (f.unavailable) {
             div.style.opacity = '0.4';
             div.style.cursor = 'not-allowed';
-            div.onclick = () => showToast(`${quality} not available for this video`, true);
+            div.innerHTML = `<span>${f.label}</span>`;
+            div.onclick = () => showToast(`${f.label} not available`, true);
         } else {
+            const isDefault = f.label === '720p' || f.default === true;
+            const isSelected = defaultSelected && f === defaultSelected;
+            
+            div.innerHTML = `<span>${f.label}</span>`;
+            
+            // Show default badge
+            if (isDefault) {
+                const badge = document.createElement('span');
+                badge.textContent = ' ✓';
+                badge.style.color = '#4ADE80';
+                badge.style.fontSize = '12px';
+                div.appendChild(badge);
+            }
+            
+            // Auto-select 720p or best available
+            if (isSelected || isDefault) {
+                div.classList.add('active');
+                if (!selectedFormat) {
+                    selectedFormat = f;
+                }
+            }
+            
             div.onclick = () => {
                 document.querySelectorAll('.quality-option').forEach(q => q.classList.remove('active'));
                 div.classList.add('active');
-                selectedFormat = found;
-                showToast(`${quality} selected`, false);
+                selectedFormat = f;
+                showToast(`${f.label} selected`, false);
             };
         }
+        
         qualityGrid.appendChild(div);
     });
 
-    setTimeout(() => {
-        const options = qualityGrid.querySelectorAll('.quality-option');
-        options.forEach(opt => {
-            if (opt.textContent.includes('1080p') && !opt.style.cursor.includes('not-allowed')) {
-                opt.click();
+    // If still no format selected, select the first available
+    if (!selectedFormat && finalFormats.length > 0) {
+        const firstAvailable = finalFormats.find(f => !f.unavailable);
+        if (firstAvailable) {
+            selectedFormat = firstAvailable;
+            const options = qualityGrid.querySelectorAll('.quality-option');
+            if (options.length > 0) {
+                options[0].classList.add('active');
             }
-        });
-    }, 100);
+        }
+    }
+
+    // Show selected format
+    if (selectedFormat) {
+        console.log('✅ Selected format:', selectedFormat.label);
+        showToast(`✓ ${selectedFormat.label} selected`, false);
+    } else {
+        showToast('No available formats', true);
+    }
 }
 
 // ============= THEME =============
@@ -241,6 +322,7 @@ async function analyzeVideo() {
         if (uploader) uploader.textContent = data.uploader || 'Unknown';
         if (views) views.textContent = data.view_count ? `${data.view_count.toLocaleString()} views` : '— views';
 
+        // Render formats with 720p default
         renderQualities(data.formats || []);
 
         if (skeleton) skeleton.classList.remove('active');
@@ -637,141 +719,6 @@ if (converterUrlInput) {
 // ============= INITIALIZATION =============
 initAnimatedName();
 renderHistory();
-
-// ============= FADE IN/OUT ON SCROLL - SMOOTH SECTION TRANSITIONS =============
-
-// Select all sections that should animate
-const fadeSections = document.querySelectorAll(
-    '.hero, .features, .platforms, .main-content, .converter-section, .footer, ' +
-    '.feature-card, .platform-card, .analysis-card, .converter-container, ' +
-    '.dashboard, .welcome-banner, .quality-section, .download-section'
-);
-
-// Options for Intersection Observer
-const fadeOptions = {
-    threshold: 0.12, // Trigger when 12% of element is visible
-    rootMargin: '0px 0px -30px 0px' // Slightly offset for smoother feel
-};
-
-// Create observer for fade sections
-const fadeObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        const el = entry.target;
-        
-        if (entry.isIntersecting) {
-            // Element is coming into view - fade in
-            el.classList.remove('leaving');
-            el.classList.add('visible');
-            
-            // Add stagger effect if class exists
-            if (el.classList.contains('stagger-children')) {
-                el.classList.add('visible');
-            }
-        } else {
-            // Element is leaving viewport - fade out
-            el.classList.remove('visible');
-            el.classList.add('leaving');
-            
-            // Remove stagger visibility
-            if (el.classList.contains('stagger-children')) {
-                el.classList.remove('visible');
-            }
-        }
-    });
-}, fadeOptions);
-
-// Apply fade-section class to each element and observe
-fadeSections.forEach((el, index) => {
-    // Skip if already has fade class
-    if (!el.classList.contains('fade-section') && 
-        !el.classList.contains('fade-left') && 
-        !el.classList.contains('fade-right') && 
-        !el.classList.contains('fade-up') && 
-        !el.classList.contains('fade-scale')) {
-        
-        // Add default fade class
-        el.classList.add('fade-section');
-        
-        // Add slight delay for staggered effect based on index
-        if (index % 3 === 0) el.classList.add('delay-1');
-        else if (index % 3 === 1) el.classList.add('delay-2');
-        else if (index % 3 === 2) el.classList.add('delay-3');
-    }
-    
-    // Observe the element
-    fadeObserver.observe(el);
-});
-
-// ============= STAGGER CHILDREN FOR CARDS/GRIDS =============
-
-// Add stagger effect to grid containers
-document.querySelectorAll('.features-grid, .platforms-grid, .quality-grid, .history-list').forEach(grid => {
-    grid.classList.add('stagger-children');
-    fadeObserver.observe(grid);
-});
-
-// ============= SPECIAL HANDLING FOR HERO SECTION =============
-const heroSection = document.querySelector('.hero');
-if (heroSection) {
-    // Hero should be visible on load with special animation
-    heroSection.classList.add('fade-section', 'fade-scale');
-    setTimeout(() => {
-        heroSection.classList.add('visible');
-    }, 200);
-}
-
-// ============= URL CONTAINER FADE =============
-const urlContainer = document.querySelector('.url-container');
-if (urlContainer) {
-    urlContainer.classList.add('fade-section', 'fade-up', 'delay-2');
-    setTimeout(() => {
-        urlContainer.classList.add('visible');
-    }, 400);
-}
-
-// ============= RE-OBSERVE AFTER DYNAMIC CONTENT LOAD =============
-// When analyzing video, re-observe new elements
-const originalAnalyze = window.analyzeVideo;
-if (originalAnalyze) {
-    window.analyzeVideo = async function() {
-        await originalAnalyze.apply(this, arguments);
-        
-        // After video analysis, observe new elements
-        setTimeout(() => {
-            document.querySelectorAll('.analysis-card, .quality-section, .download-section').forEach(el => {
-                if (!el.classList.contains('fade-section')) {
-                    el.classList.add('fade-section', 'fade-up');
-                }
-                fadeObserver.observe(el);
-                
-                // Trigger visibility after a moment
-                setTimeout(() => {
-                    el.classList.add('visible');
-                }, 300);
-            });
-        }, 500);
-    };
-}
-
-// ============= RE-OBSERVE AFTER MP3 CONVERSION =============
-const originalConvert = document.querySelector('#convertBtn')?.click;
-if (originalConvert) {
-    // Monkey patch convert button click
-    const convertBtn = document.querySelector('#convertBtn');
-    if (convertBtn) {
-        convertBtn.addEventListener('click', function(e) {
-            // After conversion result appears, observe it
-            setTimeout(() => {
-                const result = document.querySelector('.converter-result');
-                if (result) {
-                    result.classList.add('fade-section', 'fade-up');
-                    fadeObserver.observe(result);
-                    setTimeout(() => result.classList.add('visible'), 300);
-                }
-            }, 1000);
-        });
-    }
-}
 
 // Expose functions globally
 window.analyzeVideo = analyzeVideo;
