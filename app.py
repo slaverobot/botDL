@@ -19,7 +19,10 @@ YDL_HEADERS = {
     'Accept-Encoding': 'gzip, deflate, br',
     'DNT': '1',
     'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1'
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
 }
 
 # ============ DOWNLOAD DIRECTORY ============
@@ -53,6 +56,13 @@ def format_duration(seconds):
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
 
+def get_facebook_cookies():
+    """Try to get Facebook cookies from environment or file"""
+    cookies_path = 'facebook_cookies.txt'
+    if os.path.exists(cookies_path):
+        return cookies_path
+    return None
+
 # ============ HEALTH CHECK ROUTE ============
 @app.route('/health')
 def health_check():
@@ -70,20 +80,39 @@ def index():
 # ============ VIDEO ANALYSIS ROUTE ============
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
-    """Analyze video and return available formats - ALL formats with audio"""
+    """Analyze video and return available formats"""
     data = request.get_json()
     url = data.get('url', '').strip()
     
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'extract_flat': False,
-        'headers': YDL_HEADERS,
-        'user_agent': YDL_HEADERS['User-Agent'],
-    }
+    platform = get_platform(url)
+    
+    # Special options for Facebook
+    if platform == "Facebook":
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+            'headers': YDL_HEADERS,
+            'user_agent': YDL_HEADERS['User-Agent'],
+            'cookiefile': get_facebook_cookies(),
+            'extractor_args': {
+                'facebook': {
+                    'allow_media_types': ['video'],
+                    'prefer_dash_manifest': False,
+                }
+            }
+        }
+    else:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+            'headers': YDL_HEADERS,
+            'user_agent': YDL_HEADERS['User-Agent'],
+        }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -98,17 +127,20 @@ def analyze_video():
         # Quality order
         quality_order = ['144p', '240p', '360p', '480p', '720p', '1080p', '2K', '4K', '8K']
         
-        # Collect all formats with audio
+        # Get all formats with audio
         for f in info.get('formats', []):
             height = f.get('height')
             acodec = f.get('acodec', 'none')
             vcodec = f.get('vcodec', 'none')
             
-            # ONLY formats with BOTH video AND audio
-            if height and vcodec != 'none' and acodec != 'none':
+            # For Facebook, some formats may not have acodec but still have audio
+            # So we check if it's a video format (has height and vcodec)
+            if height and vcodec != 'none':
                 # Determine label
-                if height <= 240:
-                    label = '144p' if height <= 144 else '240p'
+                if height <= 144:
+                    label = '144p'
+                elif height <= 240:
+                    label = '240p'
                 elif height <= 360:
                     label = '360p'
                 elif height <= 480:
@@ -126,6 +158,8 @@ def analyze_video():
                 
                 if label not in seen:
                     seen.add(label)
+                    # Check if format has audio
+                    has_audio = acodec != 'none'
                     formats.append({
                         'format_id': str(f.get('format_id')),
                         'label': label,
@@ -133,34 +167,62 @@ def analyze_video():
                         'ext': f.get('ext', 'mp4'),
                         'filesize': f.get('filesize'),
                         'unavailable': False,
-                        'has_audio': True
+                        'has_audio': has_audio
                     })
         
-        # Sort formats by quality order (lowest to highest)
+        # If no formats found, try to get the best available
+        if not formats:
+            # Try to get any video format
+            for f in info.get('formats', []):
+                if f.get('vcodec') != 'none':
+                    height = f.get('height') or 480
+                    label = f'{height}p'
+                    if label not in seen:
+                        seen.add(label)
+                        formats.append({
+                            'format_id': str(f.get('format_id')),
+                            'label': label,
+                            'height': height,
+                            'ext': f.get('ext', 'mp4'),
+                            'filesize': f.get('filesize'),
+                            'unavailable': False,
+                            'has_audio': f.get('acodec') != 'none'
+                        })
+        
+        # Sort formats by quality
         formats.sort(key=lambda x: quality_order.index(x['label']) if x['label'] in quality_order else 999)
         
-        # Add MP3 Audio option (only ONE audio option)
-        formats.append({
-            'format_id': 'bestaudio/best',
-            'label': 'MP3 Audio',
-            'ext': 'mp3',
-            'height': 0,
-            'filesize': None,
-            'unavailable': False,
-            'has_audio': True
-        })
+        # Add MP3 Audio option (only if video formats exist)
+        if formats:
+            formats.append({
+                'format_id': 'bestaudio/best',
+                'label': 'MP3 Audio',
+                'ext': 'mp3',
+                'height': 0,
+                'filesize': None,
+                'unavailable': False,
+                'has_audio': True
+            })
         
         return jsonify({
             'title': info.get('title', 'Unknown Title'),
             'thumbnail': info.get('thumbnail', ''),
             'duration': format_duration(info.get('duration')),
-            'platform': get_platform(url),
+            'platform': platform,
             'uploader': info.get('uploader', 'Unknown'),
             'view_count': info.get('view_count', 0),
             'url': url,
             'formats': formats
         })
         
+    except yt_dlp.utils.DownloadError as e:
+        error_msg = str(e)
+        if "No video formats" in error_msg:
+            return jsonify({
+                'error': 'Facebook video formats not available. Try downloading using a different method or check if the video is public.',
+                'suggestion': 'Make sure the video is public and not restricted.'
+            }), 500
+        return jsonify({'error': error_msg[:200]}), 500
     except Exception as e:
         print(f"Analyze error: {e}")
         return jsonify({'error': str(e)[:200]}), 500
@@ -181,16 +243,27 @@ def download_video():
         return jsonify({'error': 'No format selected'}), 400
     
     is_audio = format_id == 'bestaudio/best'
+    platform = get_platform(url)
     
+    # Base options
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'headers': YDL_HEADERS,
         'user_agent': YDL_HEADERS['User-Agent'],
         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
-        'format_sort': ['codec:avc:m4a'],
         'merge_output_format': 'mp4',
     }
+    
+    # Special options for Facebook
+    if platform == "Facebook":
+        ydl_opts['cookiefile'] = get_facebook_cookies()
+        ydl_opts['extractor_args'] = {
+            'facebook': {
+                'allow_media_types': ['video'],
+                'prefer_dash_manifest': False,
+            }
+        }
     
     if is_audio:
         ydl_opts['format'] = 'bestaudio/best'
@@ -201,6 +274,7 @@ def download_video():
         }]
     else:
         ydl_opts['format'] = format_id
+        ydl_opts['format_sort'] = ['codec:avc:m4a']
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -214,7 +288,7 @@ def download_video():
             
             if is_audio:
                 base = os.path.splitext(filename)[0]
-                for ext in ['.mp3']:
+                for ext in ['.mp3', '.m4a']:
                     test_file = base + ext
                     if os.path.exists(test_file):
                         downloaded_file = test_file
@@ -231,6 +305,7 @@ def download_video():
                             break
             
             if not downloaded_file or not os.path.exists(downloaded_file):
+                # Search in download directory
                 for f in os.listdir(DOWNLOAD_DIR):
                     if info.get('title', '') in f:
                         downloaded_file = os.path.join(DOWNLOAD_DIR, f)
@@ -286,6 +361,7 @@ def convert_to_mp3():
     }
     
     quality = bitrate_map.get(bitrate, '192')
+    platform = get_platform(url)
     
     ydl_opts = {
         'quiet': True,
@@ -300,6 +376,9 @@ def convert_to_mp3():
         }],
         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
     }
+    
+    if platform == "Facebook":
+        ydl_opts['cookiefile'] = get_facebook_cookies()
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
