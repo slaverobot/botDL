@@ -8,7 +8,7 @@ import tempfile
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'botdl-secret-key'
+app.secret_key = os.environ.get('SECRET_KEY', 'botdl-secret-key')
 CORS(app)
 
 # ============ YOUTUBE HEADERS ============
@@ -53,6 +53,16 @@ def format_duration(seconds):
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
 
+# ============ HEALTH CHECK ROUTE (Render) ============
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'botDL',
+        'timestamp': datetime.utcnow().isoformat()
+    }), 200
+
 # ============ MAIN ROUTE ============
 @app.route('/')
 def index():
@@ -68,7 +78,6 @@ def analyze_video():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # Simple yt-dlp options that work
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -88,7 +97,6 @@ def analyze_video():
         formats = []
         seen = set()
         
-        # Get video formats with audio
         for f in info.get('formats', []):
             height = f.get('height')
             acodec = f.get('acodec', 'none')
@@ -115,7 +123,6 @@ def analyze_video():
             'unavailable': False
         })
         
-        # Sort by quality (highest first)
         formats.sort(key=lambda x: int(x['label'].replace('p', '')) if x['label'].replace('p', '').isdigit() else 0, reverse=True)
         
         return jsonify({
@@ -175,12 +182,10 @@ def download_video():
             if not info:
                 return jsonify({'error': 'Download failed'}), 500
             
-            # Find downloaded file
             downloaded_file = None
             filename = ydl.prepare_filename(info)
             
             if is_audio:
-                # For audio, the file will be .mp3
                 base = os.path.splitext(filename)[0]
                 for ext in ['.mp3', '.m4a', '.webm']:
                     test_file = base + ext
@@ -192,7 +197,6 @@ def download_video():
                     downloaded_file = filename
             
             if not downloaded_file or not os.path.exists(downloaded_file):
-                # Search in download directory
                 for f in os.listdir(DOWNLOAD_DIR):
                     if info.get('title', '') in f or f.endswith('.mp3'):
                         downloaded_file = os.path.join(DOWNLOAD_DIR, f)
@@ -211,7 +215,6 @@ def download_video():
                 mimetype='audio/mpeg' if is_audio else 'video/mp4'
             )
             
-            # Clean up after sending
             @response.call_on_close
             def cleanup():
                 try:
@@ -238,7 +241,6 @@ def convert_to_mp3():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    # Map bitrate
     bitrate_map = {
         '128': '128',
         '192': '192',
@@ -269,7 +271,6 @@ def convert_to_mp3():
             if not info:
                 return jsonify({'error': 'Conversion failed'}), 500
             
-            # Find MP3 file
             downloaded_file = None
             base = os.path.splitext(ydl.prepare_filename(info))[0]
             
@@ -307,9 +308,10 @@ def convert_to_mp3():
 
 # ============ MAIN ============
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
     print("🎬 botDL - Video Downloader")
-    print("📍 Server: http://127.0.0.1:5000")
+    print(f"📍 Server: http://0.0.0.0:{port}")
     print("📥 No Login Required - Public Access")
     print("=" * 55)
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(debug=False, host='0.0.0.0', port=port)
