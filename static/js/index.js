@@ -47,7 +47,7 @@ const mp3ProgressPercent = document.getElementById('mp3ProgressPercent');
 let currentMp3Data = null;
 let selectedBitrate = '128';
 
-// ============= LETTER JUMPING ANIMATION =============
+// ============= LETTER JUMPING ANIMATION (SMOOTH & PERFORMANT) =============
 const fullName = 'Mohamed Watitu';
 let currentLetterIndex = 0;
 let animationInterval = null;
@@ -57,40 +57,64 @@ const jumpColors = ['#4A8BFF', '#4DD0E1', '#4ADE80', '#4A8BFF', '#4DD0E1'];
 
 function jumpLetter(span, color) {
     if (!span) return;
+    // Improve performance
+    span.style.willChange = 'transform, color';
     span.classList.add('jumping');
     span.style.color = color;
+    
     setTimeout(() => {
         if (span) {
             span.classList.remove('jumping');
             span.style.color = '';
+            setTimeout(() => {
+                span.style.willChange = 'auto';
+            }, 100);
         }
-    }, 500);
+    }, 400);
 }
 
 function jumpNextLetter() {
     if (!animatedNameElement) return;
     const spans = animatedNameElement.querySelectorAll('.letter-jump');
     if (spans.length === 0) return;
+    
     const currentSpan = spans[currentLetterIndex];
     if (currentSpan && currentSpan.textContent.trim() !== '') {
         jumpLetter(currentSpan, jumpColors[currentLetterIndex % jumpColors.length]);
     }
+    
     currentLetterIndex++;
     if (currentLetterIndex >= spans.length) currentLetterIndex = 0;
 }
 
 function initAnimatedName() {
     if (!animatedNameElement) return;
+    
+    // Prevent layout shift
+    animatedNameElement.style.display = 'inline-flex';
+    animatedNameElement.style.alignItems = 'center';
+    animatedNameElement.style.gap = '1px';
+    animatedNameElement.style.position = 'relative';
+    animatedNameElement.style.flexShrink = '0';
+    
     animatedNameElement.innerHTML = '';
     fullName.split('').forEach(letter => {
         const span = document.createElement('span');
         span.textContent = letter;
         span.className = 'letter-jump';
-        if (letter === ' ') span.style.width = '0.3rem';
+        span.style.display = 'inline-block';
+        span.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.35s ease';
+        span.style.backfaceVisibility = 'hidden';
+        span.style.webkitBackfaceVisibility = 'hidden';
+        if (letter === ' ') {
+            span.style.width = '0.3rem';
+            span.style.minWidth = '0.3rem';
+        }
         animatedNameElement.appendChild(span);
     });
+    
     if (animationInterval) clearInterval(animationInterval);
-    animationInterval = setInterval(jumpNextLetter, 700);
+    animationInterval = setInterval(jumpNextLetter, 1200);
 }
 
 // ============= TOAST FUNCTIONS =============
@@ -613,6 +637,141 @@ if (converterUrlInput) {
 // ============= INITIALIZATION =============
 initAnimatedName();
 renderHistory();
+
+// ============= FADE IN/OUT ON SCROLL - SMOOTH SECTION TRANSITIONS =============
+
+// Select all sections that should animate
+const fadeSections = document.querySelectorAll(
+    '.hero, .features, .platforms, .main-content, .converter-section, .footer, ' +
+    '.feature-card, .platform-card, .analysis-card, .converter-container, ' +
+    '.dashboard, .welcome-banner, .quality-section, .download-section'
+);
+
+// Options for Intersection Observer
+const fadeOptions = {
+    threshold: 0.12, // Trigger when 12% of element is visible
+    rootMargin: '0px 0px -30px 0px' // Slightly offset for smoother feel
+};
+
+// Create observer for fade sections
+const fadeObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const el = entry.target;
+        
+        if (entry.isIntersecting) {
+            // Element is coming into view - fade in
+            el.classList.remove('leaving');
+            el.classList.add('visible');
+            
+            // Add stagger effect if class exists
+            if (el.classList.contains('stagger-children')) {
+                el.classList.add('visible');
+            }
+        } else {
+            // Element is leaving viewport - fade out
+            el.classList.remove('visible');
+            el.classList.add('leaving');
+            
+            // Remove stagger visibility
+            if (el.classList.contains('stagger-children')) {
+                el.classList.remove('visible');
+            }
+        }
+    });
+}, fadeOptions);
+
+// Apply fade-section class to each element and observe
+fadeSections.forEach((el, index) => {
+    // Skip if already has fade class
+    if (!el.classList.contains('fade-section') && 
+        !el.classList.contains('fade-left') && 
+        !el.classList.contains('fade-right') && 
+        !el.classList.contains('fade-up') && 
+        !el.classList.contains('fade-scale')) {
+        
+        // Add default fade class
+        el.classList.add('fade-section');
+        
+        // Add slight delay for staggered effect based on index
+        if (index % 3 === 0) el.classList.add('delay-1');
+        else if (index % 3 === 1) el.classList.add('delay-2');
+        else if (index % 3 === 2) el.classList.add('delay-3');
+    }
+    
+    // Observe the element
+    fadeObserver.observe(el);
+});
+
+// ============= STAGGER CHILDREN FOR CARDS/GRIDS =============
+
+// Add stagger effect to grid containers
+document.querySelectorAll('.features-grid, .platforms-grid, .quality-grid, .history-list').forEach(grid => {
+    grid.classList.add('stagger-children');
+    fadeObserver.observe(grid);
+});
+
+// ============= SPECIAL HANDLING FOR HERO SECTION =============
+const heroSection = document.querySelector('.hero');
+if (heroSection) {
+    // Hero should be visible on load with special animation
+    heroSection.classList.add('fade-section', 'fade-scale');
+    setTimeout(() => {
+        heroSection.classList.add('visible');
+    }, 200);
+}
+
+// ============= URL CONTAINER FADE =============
+const urlContainer = document.querySelector('.url-container');
+if (urlContainer) {
+    urlContainer.classList.add('fade-section', 'fade-up', 'delay-2');
+    setTimeout(() => {
+        urlContainer.classList.add('visible');
+    }, 400);
+}
+
+// ============= RE-OBSERVE AFTER DYNAMIC CONTENT LOAD =============
+// When analyzing video, re-observe new elements
+const originalAnalyze = window.analyzeVideo;
+if (originalAnalyze) {
+    window.analyzeVideo = async function() {
+        await originalAnalyze.apply(this, arguments);
+        
+        // After video analysis, observe new elements
+        setTimeout(() => {
+            document.querySelectorAll('.analysis-card, .quality-section, .download-section').forEach(el => {
+                if (!el.classList.contains('fade-section')) {
+                    el.classList.add('fade-section', 'fade-up');
+                }
+                fadeObserver.observe(el);
+                
+                // Trigger visibility after a moment
+                setTimeout(() => {
+                    el.classList.add('visible');
+                }, 300);
+            });
+        }, 500);
+    };
+}
+
+// ============= RE-OBSERVE AFTER MP3 CONVERSION =============
+const originalConvert = document.querySelector('#convertBtn')?.click;
+if (originalConvert) {
+    // Monkey patch convert button click
+    const convertBtn = document.querySelector('#convertBtn');
+    if (convertBtn) {
+        convertBtn.addEventListener('click', function(e) {
+            // After conversion result appears, observe it
+            setTimeout(() => {
+                const result = document.querySelector('.converter-result');
+                if (result) {
+                    result.classList.add('fade-section', 'fade-up');
+                    fadeObserver.observe(result);
+                    setTimeout(() => result.classList.add('visible'), 300);
+                }
+            }, 1000);
+        });
+    }
+}
 
 // Expose functions globally
 window.analyzeVideo = analyzeVideo;
