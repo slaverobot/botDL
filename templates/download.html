@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Search and download MP3 music from any artist or song.">
+    <meta name="author" content="Mohamed Watitu">
+    <title>MP3 Downloads — botDL</title>
+
+    <script>
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('botdl-theme') || 'dark');
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/downloads.css') }}">
+</head>
+
+<body>
+    <div class="bg-gradient"></div>
+    <div class="noise"></div>
+
+    <div class="app">
+        <!-- Navigation -->
+        <nav class="navbar floating-nav">
+            <div class="nav-container">
+                <div class="logo">
+                    <span>bot<span class="logo-accent">DL</span></span>
+                </div>
+
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/downloads" class="nav-highlight">🎵 MP3 Downloads</a>
+                    <a href="#how-it-works">How it Works</a>
+                </div>
+
+                <div class="nav-right">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <div class="powered">
+                        <span>by</span>
+                        <span class="animated-name" id="animatedName">Mohamed Watitu</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="hero-mp3">
+            <h1 class="hero-title">
+                Search & Download <span class="gradient-text">MP3 Music</span>
+            </h1>
+            <p class="hero-subtitle">
+                Find any song or artist and download high-quality MP3 files instantly.
+            </p>
+
+            <!-- Search Input -->
+            <div class="search-container glass">
+                <div class="search-input-wrapper">
+                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search by artist or song name...">
+                    <button id="clearBtn" class="clear-btn" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <button id="searchBtn" class="search-btn">
+                    <span>Search</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                    <div class="btn-loader"></div>
+                </button>
+            </div>
+
+            <!-- Quick Tags -->
+            <div class="quick-tags">
+                <span class="tag-label">Popular:</span>
+                <button class="quick-tag" data-query="Diamond Platnumz">Diamond Platnumz</button>
+                <button class="quick-tag" data-query="Harmonize">Harmonize</button>
+                <button class="quick-tag" data-query="Zuchu">Zuchu</button>
+                <button class="quick-tag" data-query="Rayvanny">Rayvanny</button>
+                <button class="quick-tag" data-query="Ali Kiba">Ali Kiba</button>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection">
+            <div class="skeleton-grid" id="skeletonGrid">
+                <div class="skeleton-item">
+                    <div class="skeleton-thumb"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-item">
+                    <div class="skeleton-thumb"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-item">
+                    <div class="skeleton-thumb"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-item">
+                    <div class="skeleton-thumb"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            </div>
+
+            <div class="results-grid" id="resultsGrid" style="display: none;"></div>
+
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">🎵</div>
+                <h3>No results found</h3>
+                <p>Try searching with a different artist or song name.</p>
+            </div>
+
+            <div class="error-state" id="errorState" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <h3>Something went wrong</h3>
+                <p id="errorMessage">Please try again later.</p>
+            </div>
+        </section>
+
+        <!-- How it Works -->
+        <section class="how-it-works" id="how-it-works">
+            <div class="section-header">
+                <span class="section-badge">📖 Guide</span>
+                <h2>How it <span class="gradient-text">Works</span></h2>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step-card glass">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">🔍</div>
+                    <h3>Search</h3>
+                    <p>Type the artist name or song title in the search bar above.</p>
+                </div>
+                <div class="step-card glass">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">🎧</div>
+                    <h3>Preview</h3>
+                    <p>Listen to a short preview to confirm it's the right song.</p>
+                </div>
+                <div class="step-card glass">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">⬇️</div>
+                    <h3>Download</h3>
+                    <p>Click download and get your MP3 file instantly.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <div class="footer-bottom">
+                <p>&copy; 2026 botDL. All rights reserved. Powered by Mohamed Watitu</p>
+            </div>
+        </footer>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="{{ url_for('static', filename='js/downloads.js') }}"></script>
+</body>
+
+</html>
