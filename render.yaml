@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: botdl
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      apt-get update && apt-get install -y ffmpeg
+    startCommand: |
+      gunicorn app:app --bind 0.0.0.0:10000 --timeout 300 --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: RENDER
+        value: "true"
