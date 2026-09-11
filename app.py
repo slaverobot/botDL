@@ -1,14 +1,19 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from dotenv import load_dotenv
+load_dotenv()  # Inapakia .env kwenye environment kabla ya kila kitu
+
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from flask_cors import CORS
 import yt_dlp
 import os
 import re
 import uuid
 import tempfile
+import requests
 from datetime import datetime
 
-# Import MP3 blueprint
+# Import MP3 blueprint na Config
 from routes.mp3_routes import mp3_bp
+from config import Config
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'botdl-secret-key')
@@ -312,12 +317,126 @@ def convert_to_mp3():
         print(f"MP3 conversion error: {e}")
         return jsonify({'error': str(e)[:200]}), 500
 
+
+# ==========================================================================
+# ============ JAMENDO API ROUTES ==========================================
+# ==========================================================================
+
+@app.route('/api/jamendo/search')
+def jamendo_search():
+    """Tafuta nyimbo kwenye Jamendo"""
+    query = request.args.get('q', '').strip()
+    limit = request.args.get('limit', Config.JAMENDO_DEFAULT_LIMIT)
+    
+    if not query:
+        return jsonify({'error': 'No query provided'}), 400
+    
+    # Hakikisha limit haizidi max
+    try:
+        limit = min(int(limit), Config.JAMENDO_MAX_LIMIT)
+    except ValueError:
+        limit = Config.JAMENDO_DEFAULT_LIMIT
+    
+    # Angalia kama Client ID imewekwa
+    if not Config.JAMENDO_CLIENT_ID:
+        return jsonify({'error': 'Jamendo Client ID not configured'}), 500
+    
+    url = f"{Config.JAMENDO_API_URL}/tracks/"
+    params = {
+        'client_id': Config.JAMENDO_CLIENT_ID,
+        'format': 'json',
+        'limit': limit,
+        'search': query,
+        'include': 'musicinfo',
+        'audioformat': Config.JAMENDO_AUDIO_FORMAT,
+        'order': 'popularity_total'
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        # Angalia rate limit (envelope code 6)
+        if data.get('headers', {}).get('code') == 6:
+            return jsonify({'error': 'Rate limit exceeded. Try again later.'}), 429
+        
+        tracks = []
+        for track in data.get('results', []):
+            # Chuja tu tracks zinazoruhusiwa kupakua
+            if not track.get('audiodownload_allowed', False):
+                continue
+            
+            tracks.append({
+                'id': track.get('id'),
+                'title': track.get('name'),
+                'artist': track.get('artist_name'),
+                'album': track.get('album_name'),
+                'duration': track.get('duration'),
+                'image': track.get('image'),
+                'audio': track.get('audio'),
+                'download_allowed': True,
+                'download_url': f"/api/jamendo/download?id={track.get('id')}"
+            })
+        
+        return jsonify({
+            'tracks': tracks,
+            'total': len(tracks),
+            'query': query
+        })
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Request timeout'}), 504
+    except Exception as e:
+        print(f"Jamendo search error: {e}")
+        return jsonify({'error': str(e)[:200]}), 500
+
+
+@app.route('/api/jamendo/download')
+def jamendo_download():
+    """Pakua wimbo kamili kutoka Jamendo"""
+    track_id = request.args.get('id')
+    
+    if not track_id:
+        return jsonify({'error': 'No track ID provided'}), 400
+    
+    if not Config.JAMENDO_CLIENT_ID:
+        return jsonify({'error': 'Jamendo Client ID not configured'}), 500
+    
+    url = f"{Config.JAMENDO_API_URL}/tracks/file/"
+    params = {
+        'client_id': Config.JAMENDO_CLIENT_ID,
+        'id': track_id,
+        'audioformat': Config.JAMENDO_AUDIO_FORMAT,
+        'action': 'download'
+    }
+    
+    try:
+        # Stream faili moja kwa moja kwa mtumiaji
+        response = requests.get(url, params=params, stream=True, timeout=30)
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Download failed from Jamendo'}), response.status_code
+        
+        return Response(
+            response.iter_content(chunk_size=8192),
+            content_type='audio/mpeg',
+            headers={
+                'Content-Disposition': f'attachment; filename="jamendo_{track_id}.mp3"'
+            }
+        )
+        
+    except Exception as e:
+        print(f"Jamendo download error: {e}")
+        return jsonify({'error': str(e)[:200]}), 500
+
+
 # ============ MAIN ============
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader")
+    print("🎬 botDL - Video Downloader + Jamendo Music")
     print(f"📍 Server: http://0.0.0.0:{port}")
     print("📥 No Login Required - Public Access")
+    print("🎵 Jamendo API:", "✅ Configured" if Config.JAMENDO_CLIENT_ID else "❌ Missing Client ID")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
