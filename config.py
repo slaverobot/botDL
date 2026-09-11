@@ -30,3 +30,13 @@ class Config:
     
     # iTunes API for MP3 search
     ITUNES_API_URL = 'https://itunes.apple.com/search'
+    
+    # ============ JAMENDO API ============
+    JAMENDO_CLIENT_ID = os.environ.get('JAMENDO_CLIENT_ID', '')
+    JAMENDO_CLIENT_SECRET = os.environ.get('JAMENDO_CLIENT_SECRET', '')
+    JAMENDO_API_URL = 'https://api.jamendo.com/v3.0'
+    
+    # Jamendo download settings
+    JAMENDO_AUDIO_FORMAT = 'mp32'  # mp31 (96kbps), mp32 (VBR ~192kbps), ogg, flac
+    JAMENDO_DEFAULT_LIMIT = 10
+    JAMENDO_MAX_LIMIT = 200
