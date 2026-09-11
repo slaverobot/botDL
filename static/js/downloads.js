@@ -1,7 +1,7 @@
 // ============= STORE DATA =============
 let searchResults = [];
 let currentAudio = null;
-let currentPlayingCard = null;
+let currentPlayingBtn = null;
 
 // ============= DOM ELEMENTS =============
 const searchInput = document.getElementById('searchInput');
@@ -13,8 +13,11 @@ const emptyState = document.getElementById('emptyState');
 const errorState = document.getElementById('errorState');
 const errorMessage = document.getElementById('errorMessage');
 const themeToggle = document.getElementById('themeToggle');
+const toastContainer = document.getElementById('toastContainer');
 
-// ============= LETTER JUMPING ANIMATION =============
+// ==========================================================================
+// ============= LETTER JUMPING ANIMATION ===================================
+// ==========================================================================
 const fullName = 'Mohamed Watitu';
 let currentLetterIndex = 0;
 let animationInterval = null;
@@ -26,7 +29,7 @@ function jumpLetter(span, color) {
     span.style.willChange = 'transform, color';
     span.classList.add('jumping');
     span.style.color = color;
-    
+
     setTimeout(() => {
         if (span) {
             span.classList.remove('jumping');
@@ -42,24 +45,24 @@ function jumpNextLetter() {
     if (!animatedNameElement) return;
     const spans = animatedNameElement.querySelectorAll('.letter-jump');
     if (spans.length === 0) return;
-    
+
     const currentSpan = spans[currentLetterIndex];
     if (currentSpan && currentSpan.textContent.trim() !== '') {
         jumpLetter(currentSpan, jumpColors[currentLetterIndex % jumpColors.length]);
     }
-    
+
     currentLetterIndex++;
     if (currentLetterIndex >= spans.length) currentLetterIndex = 0;
 }
 
 function initAnimatedName() {
     if (!animatedNameElement) return;
-    
+
     animatedNameElement.style.display = 'inline-flex';
     animatedNameElement.style.alignItems = 'center';
     animatedNameElement.style.gap = '1px';
     animatedNameElement.style.flexShrink = '0';
-    
+
     animatedNameElement.innerHTML = '';
     fullName.split('').forEach(letter => {
         const span = document.createElement('span');
@@ -73,29 +76,52 @@ function initAnimatedName() {
         }
         animatedNameElement.appendChild(span);
     });
-    
+
     if (animationInterval) clearInterval(animationInterval);
     animationInterval = setInterval(jumpNextLetter, 1200);
 }
 
-// ============= TOAST FUNCTIONS =============
-function showToast(message, isError = false) {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
+// ==========================================================================
+// ============= TOAST ======================================================
+// ==========================================================================
+function showToast(message, type = 'info') {
+    if (!toastContainer) return;
+
     const toast = document.createElement('div');
-    toast.className = `toast ${isError ? 'error' : ''}`.trim();
-    toast.innerHTML = `<span>${isError ? '⚠️ ' : '✅ '}${message}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+    toast.className = `toast ${type}`;
+
+    const iconMap = {
+        success: 'check-circle-fill',
+        error: 'exclamation-triangle-fill',
+        info: 'info-circle-fill'
+    };
+
+    toast.innerHTML = `
+        <i class="bi bi-${iconMap[type] || 'info-circle-fill'}"></i>
+        <span>${message}</span>
+    `;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
 
-// ============= THEME =============
+// ==========================================================================
+// ============= THEME ======================================================
+// ==========================================================================
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     if (themeToggle) {
-        themeToggle.innerHTML = theme === 'dark'
-            ? '<i class="fas fa-sun"></i>'
-            : '<i class="fas fa-moon"></i>';
+        const icon = themeToggle.querySelector('i');
+        if (icon) {
+            icon.className = theme === 'dark'
+                ? 'bi bi-moon-stars-fill'
+                : 'bi bi-sun-fill';
+        }
     }
 }
 
@@ -109,13 +135,10 @@ themeToggle?.addEventListener('click', () => {
     localStorage.setItem('botdl-theme', next);
 });
 
-// ============= SEARCH FUNCTION (Using Backend) =============
-async function searchMusic(query) {
-    if (!query || query.trim() === '') {
-        showToast('Please enter an artist or song name', true);
-        return;
-    }
-
+// ==========================================================================
+// ============= STATE HELPERS ==============================================
+// ==========================================================================
+function showSkeleton() {
     if (skeletonGrid) skeletonGrid.classList.add('active');
     if (resultsGrid) resultsGrid.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
@@ -124,230 +147,254 @@ async function searchMusic(query) {
         searchBtn.classList.add('loading');
         searchBtn.disabled = true;
     }
+}
 
-    try {
-        // Call backend search API
-        const response = await fetch('/api/mp3/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: query.trim() })
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Search failed');
-        }
-        
-        const data = await response.json();
-        searchResults = data.results || [];
-        
-        if (skeletonGrid) skeletonGrid.classList.remove('active');
-        
-        if (searchResults.length === 0) {
-            if (emptyState) emptyState.style.display = 'flex';
-            showToast('No results found for "' + query + '"', true);
-        } else {
-            renderResults(searchResults);
-            if (resultsGrid) resultsGrid.style.display = 'grid';
-            showToast(`Found ${searchResults.length} results`, false);
-        }
-        
-    } catch (error) {
-        if (skeletonGrid) skeletonGrid.classList.remove('active');
-        if (errorState) {
-            errorState.style.display = 'flex';
-            if (errorMessage) errorMessage.textContent = error.message;
-        }
-        showToast(error.message, true);
-    } finally {
-        if (searchBtn) {
-            searchBtn.classList.remove('loading');
-            searchBtn.disabled = false;
-        }
+function hideSkeleton() {
+    if (skeletonGrid) skeletonGrid.classList.remove('active');
+    if (searchBtn) {
+        searchBtn.classList.remove('loading');
+        searchBtn.disabled = false;
     }
 }
 
-// ============= RENDER RESULTS =============
-function renderResults(results) {
+function showEmpty() {
+    if (skeletonGrid) skeletonGrid.classList.remove('active');
+    if (resultsGrid) resultsGrid.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'flex';
+    if (errorState) errorState.style.display = 'none';
+}
+
+function showError(message) {
+    if (skeletonGrid) skeletonGrid.classList.remove('active');
+    if (resultsGrid) resultsGrid.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+    if (errorState) errorState.style.display = 'flex';
+    if (errorMessage) errorMessage.textContent = message;
+}
+
+// ==========================================================================
+// ============= SEARCH FUNCTION (Jamendo pekee) ============================
+// ==========================================================================
+async function searchMusic(query) {
+    if (!query || query.trim() === '') {
+        showToast('Please enter an artist or song name', 'error');
+        return;
+    }
+
+    showSkeleton();
+
+    try {
+        const response = await fetch(
+            `/api/jamendo/search?q=${encodeURIComponent(query.trim())}&limit=20`
+        );
+        const data = await response.json();
+
+        hideSkeleton();
+
+        if (!response.ok || data.error) {
+            showError(data.error || 'Search failed');
+            showToast(data.error || 'Search failed', 'error');
+            return;
+        }
+
+        if (!data.tracks || data.tracks.length === 0) {
+            showEmpty();
+            showToast(`No results found for "${query}"`, 'error');
+            return;
+        }
+
+        searchResults = data.tracks;
+        displayTracks(data.tracks);
+        showToast(`Found ${data.tracks.length} tracks`, 'success');
+
+    } catch (error) {
+        hideSkeleton();
+        console.error('Search error:', error);
+        showError('Something went wrong. Please try again.');
+        showToast('Connection error. Try again.', 'error');
+    }
+}
+
+// ==========================================================================
+// ============= DISPLAY TRACKS =============================================
+// ==========================================================================
+function displayTracks(tracks) {
     if (!resultsGrid) return;
+
     resultsGrid.innerHTML = '';
-    
-    results.forEach((song, index) => {
+    resultsGrid.style.display = 'grid';
+
+    tracks.forEach(track => {
         const card = document.createElement('div');
         card.className = 'song-card';
-        
-        const artwork = song.artwork || 'https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵';
-        const title = song.title || 'Unknown Title';
-        const artist = song.artist || 'Unknown Artist';
-        const previewUrl = song.preview_url || '';
-        const duration = formatDuration(song.duration_ms);
-        
+
+        const duration = formatDuration(track.duration);
+        const image = track.image || 'https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵';
+
         card.innerHTML = `
             <div class="song-thumbnail-wrapper">
-                <img src="${artwork}" alt="${escapeHtml(title)}" 
+                <img src="${image}"
+                     alt="${escapeHtml(track.title)}"
+                     loading="lazy"
                      onerror="this.src='https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵'">
                 <span class="song-duration">${duration}</span>
             </div>
             <div class="song-info">
-                <h3 class="song-title">${escapeHtml(title)}</h3>
+                <h3 class="song-title">${escapeHtml(track.title)}</h3>
                 <p class="song-artist">
-                    <i class="fas fa-user"></i>
-                    ${escapeHtml(artist)}
+                    <i class="bi bi-person"></i>
+                    ${escapeHtml(track.artist)}
                 </p>
                 <div class="song-actions">
-                    <button class="preview-btn" data-preview="${previewUrl}">
-                        <i class="fas fa-play"></i> Preview
+                    <button class="preview-btn" data-audio="${escapeHtml(track.audio || '')}">
+                        <i class="bi bi-play-fill"></i> Preview
                     </button>
-                    <button class="download-btn" 
-                            data-title="${escapeHtml(title)}" 
-                            data-artist="${escapeHtml(artist)}">
-                        <i class="fas fa-download"></i> MP3
+                    <button class="download-btn"
+                            data-id="${track.id}"
+                            data-title="${escapeHtml(track.title)}"
+                            data-artist="${escapeHtml(track.artist)}">
+                        <i class="bi bi-download"></i> Download
                     </button>
                 </div>
             </div>
         `;
-        
+
         resultsGrid.appendChild(card);
     });
-    
-    // Add event listeners
+
+    // Attach event listeners
     document.querySelectorAll('.preview-btn').forEach(btn => {
         btn.addEventListener('click', handlePreview);
     });
-    
+
     document.querySelectorAll('.download-btn').forEach(btn => {
         btn.addEventListener('click', handleDownload);
     });
 }
 
-// ============= FORMAT DURATION =============
-function formatDuration(ms) {
-    if (!ms) return '--:--';
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+// ==========================================================================
+// ============= PREVIEW HANDLER ============================================
+// ==========================================================================
+function handlePreview(e) {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const audioUrl = btn.dataset.audio;
+
+    if (!audioUrl) {
+        showToast('Preview not available for this track', 'error');
+        return;
+    }
+
+    // Kama ni track hii hii inayocheza - pause
+    if (currentAudio && currentPlayingBtn === btn) {
+        currentAudio.pause();
+        currentAudio = null;
+        btn.classList.remove('playing');
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Preview';
+        currentPlayingBtn = null;
+        return;
+    }
+
+    // Pause track nyingine kama ipo
+    if (currentAudio) {
+        currentAudio.pause();
+        if (currentPlayingBtn) {
+            currentPlayingBtn.classList.remove('playing');
+            currentPlayingBtn.innerHTML = '<i class="bi bi-play-fill"></i> Preview';
+        }
+    }
+
+    // Anza preview mpya
+    currentAudio = new Audio(audioUrl);
+    currentPlayingBtn = btn;
+
+    btn.classList.add('playing');
+    btn.innerHTML = '<i class="bi bi-pause-fill"></i> Playing';
+
+    currentAudio.play().catch(err => {
+        console.error('Play error:', err);
+        showToast('Cannot play preview', 'error');
+        btn.classList.remove('playing');
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Preview';
+        currentAudio = null;
+        currentPlayingBtn = null;
+    });
+
+    currentAudio.addEventListener('ended', () => {
+        btn.classList.remove('playing');
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Preview';
+        currentAudio = null;
+        currentPlayingBtn = null;
+    });
 }
 
-// ============= ESCAPE HTML =============
+// ==========================================================================
+// ============= DOWNLOAD HANDLER (Jamendo full song) =======================
+// ==========================================================================
+function handleDownload(e) {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const trackId = btn.dataset.id;
+    const title = btn.dataset.title;
+
+    if (!trackId) {
+        showToast('No track selected', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Downloading...';
+
+    showToast(`Downloading "${title}"...`, 'info');
+
+    // Trigger download - browser itaanza kupakua
+    const downloadUrl = `/api/jamendo/download?id=${trackId}`;
+
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${sanitizeFilename(title)}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Reset button baada ya sekunde 3
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Done';
+        showToast(`"${title}" download started!`, 'success');
+
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+        }, 2000);
+    }, 2000);
+}
+
+// ==========================================================================
+// ============= HELPERS ====================================================
+// ==========================================================================
+function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return '--:--';
+    const totalSeconds = Math.floor(Number(seconds));
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>"']/g, m => {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(str).replace(/[&<>"']/g, m => {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
         return map[m];
     });
 }
 
-// ============= PREVIEW HANDLER =============
-function handlePreview(e) {
-    e.preventDefault();
-    const btn = e.currentTarget;
-    const previewUrl = btn.dataset.preview;
-    
-    if (!previewUrl) {
-        showToast('Preview not available for this track', true);
-        return;
-    }
-    
-    if (currentAudio && currentPlayingCard === btn) {
-        currentAudio.pause();
-        currentAudio = null;
-        btn.classList.remove('playing');
-        btn.innerHTML = '<i class="fas fa-play"></i> Preview';
-        currentPlayingCard = null;
-        return;
-    }
-    
-    if (currentAudio) {
-        currentAudio.pause();
-        if (currentPlayingCard) {
-            currentPlayingCard.classList.remove('playing');
-            currentPlayingCard.innerHTML = '<i class="fas fa-play"></i> Preview';
-        }
-    }
-    
-    currentAudio = new Audio(previewUrl);
-    currentPlayingCard = btn;
-    
-    btn.classList.add('playing');
-    btn.innerHTML = '<i class="fas fa-pause"></i> Playing';
-    
-    currentAudio.play().catch(err => {
-        showToast('Cannot play preview', true);
-        btn.classList.remove('playing');
-        btn.innerHTML = '<i class="fas fa-play"></i> Preview';
-        currentAudio = null;
-        currentPlayingCard = null;
-    });
-    
-    currentAudio.addEventListener('ended', () => {
-        btn.classList.remove('playing');
-        btn.innerHTML = '<i class="fas fa-play"></i> Preview';
-        currentAudio = null;
-        currentPlayingCard = null;
-    });
-}
-
-// ============= DOWNLOAD HANDLER - FULL SONG =============
-async function handleDownload(e) {
-    e.preventDefault();
-    const btn = e.currentTarget;
-    const title = btn.dataset.title;
-    const artist = btn.dataset.artist;
-    
-    if (!title) {
-        showToast('No song selected', true);
-        return;
-    }
-    
-    btn.disabled = true;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
-    
-    try {
-        // Call backend to download FULL song
-        const response = await fetch('/api/mp3/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: title,
-                artist: artist
-            })
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Download failed');
-        }
-        
-        const blob = await response.blob();
-        const downloadUrl = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `${sanitizeFilename(artist)} - ${sanitizeFilename(title)}.mp3`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-        
-        showToast(`Downloaded: ${title}`, false);
-        btn.innerHTML = '<i class="fas fa-check"></i> Done';
-        
-        setTimeout(() => {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        }, 2000);
-        
-    } catch (error) {
-        showToast(error.message || 'Download failed', true);
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-    }
-}
-
-// ============= SANITIZE FILENAME =============
 function sanitizeFilename(name) {
     if (!name) return 'audio';
     return name
@@ -357,52 +404,61 @@ function sanitizeFilename(name) {
         .substring(0, 80);
 }
 
-// ============= CLEAR SEARCH =============
-if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        clearBtn.style.display = 'none';
-        resultsGrid.style.display = 'none';
-        emptyState.style.display = 'none';
-        errorState.style.display = 'none';
-        searchInput.focus();
+// ==========================================================================
+// ============= EVENT LISTENERS ============================================
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Search button
+    searchBtn?.addEventListener('click', () => {
+        searchMusic(searchInput?.value || '');
     });
-}
 
-// ============= SEARCH INPUT EVENTS =============
-if (searchInput) {
-    searchInput.addEventListener('input', () => {
-        if (searchInput.value.trim().length > 0) {
-            clearBtn.style.display = 'flex';
-        } else {
-            clearBtn.style.display = 'none';
-        }
-    });
-    
-    searchInput.addEventListener('keypress', (e) => {
+    // Enter key
+    searchInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            searchMusic(searchInput.value.trim());
+            searchMusic(searchInput.value);
         }
     });
-}
 
-if (searchBtn) {
-    searchBtn.addEventListener('click', () => {
-        searchMusic(searchInput.value.trim());
+    // Clear button visibility
+    searchInput?.addEventListener('input', () => {
+        if (clearBtn) {
+            clearBtn.style.display = searchInput.value.trim() ? 'flex' : 'none';
+        }
     });
-}
 
-// ============= QUICK TAGS =============
-document.querySelectorAll('.quick-tag').forEach(tag => {
-    tag.addEventListener('click', () => {
-        const query = tag.dataset.query;
-        if (searchInput) searchInput.value = query;
-        if (clearBtn) clearBtn.style.display = 'flex';
-        searchMusic(query);
+    // Clear button
+    clearBtn?.addEventListener('click', () => {
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (resultsGrid) resultsGrid.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        if (errorState) errorState.style.display = 'none';
     });
+
+    // Quick tags
+    document.querySelectorAll('.quick-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            const query = tag.dataset.query;
+            if (searchInput) searchInput.value = query;
+            if (clearBtn) clearBtn.style.display = 'flex';
+            searchMusic(query);
+        });
+    });
+
+    // Initialize animated name
+    initAnimatedName();
+
+    // Navbar scroll effect
+    handleNavbarScroll();
 });
 
-// ============= FLOATING NAVBAR =============
+// ==========================================================================
+// ============= NAVBAR SCROLL ==============================================
+// ==========================================================================
 function handleNavbarScroll() {
     const navbar = document.querySelector('.navbar');
     if (!navbar) return;
@@ -422,16 +478,16 @@ window.addEventListener('scroll', () => {
     });
 }, { passive: true });
 
-handleNavbarScroll();
-
-// ============= PAGE LOAD =============
+// ==========================================================================
+// ============= PAGE LOAD FADE =============================================
+// ==========================================================================
 document.body.style.opacity = '0';
 document.body.style.transition = 'opacity 0.5s ease';
 window.addEventListener('load', () => {
     document.body.style.opacity = '1';
 });
 
-// ============= INITIALIZATION =============
-initAnimatedName();
-
+// ==========================================================================
+// ============= GLOBAL EXPORTS =============================================
+// ==========================================================================
 window.searchMusic = searchMusic;
