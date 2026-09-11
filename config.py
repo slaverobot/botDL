@@ -29,7 +29,7 @@ class Config:
     }
     
     # iTunes API for MP3 search
-    ITUNES_API_URL = 'https://itunes.apple.com/search'
+    # ITUNES_API_URL = 'https://itunes.apple.com/search'
     
     # ============ JAMENDO API ============
     JAMENDO_CLIENT_ID = os.environ.get('JAMENDO_CLIENT_ID', '')
