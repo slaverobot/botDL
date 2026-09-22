@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}botDL - Movie Downloader{% endblock %}
+{% block meta_description %}Search and download movies online.{% endblock %}
+{% block nav_movies %}nav-highlight{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/movies.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="hero-movie">
+    <h1 class="hero-title">
+        Search & Download <span class="gradient-text">Movies</span>
+    </h1>
+    <p class="hero-subtitle">
+        Find any movie by title and get details instantly.
+    </p>
+
+    <div class="search-container glass">
+        <div class="search-input-wrapper">
+            <i class="bi bi-search input-icon"></i>
+            <input type="text" id="movieInput" placeholder="Search by movie title...">
+            <button id="movieClearBtn" class="clear-btn" style="display: none;" aria-label="Clear">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <button id="movieSearchBtn" class="search-btn">
+            <span>Search</span>
+            <i class="bi bi-arrow-right btn-icon"></i>
+            <div class="btn-loader"></div>
+        </button>
+    </div>
+
+    <div class="quick-tags">
+        <span class="tag-label">Popular:</span>
+        <button class="quick-tag" data-query="Avengers">Avengers</button>
+        <button class="quick-tag" data-query="Inception">Inception</button>
+        <button class="quick-tag" data-query="Titanic">Titanic</button>
+        <button class="quick-tag" data-query="Joker">Joker</button>
+        <button class="quick-tag" data-query="Interstellar">Interstellar</button>
+    </div>
+</section>
+
+<!-- Results -->
+<section class="results-section" id="resultsSection">
+    <div class="skeleton-grid" id="movieSkeletonGrid">
+        <div class="skeleton-item"><div class="skeleton-thumb"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+        <div class="skeleton-item"><div class="skeleton-thumb"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+        <div class="skeleton-item"><div class="skeleton-thumb"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+        <div class="skeleton-item"><div class="skeleton-thumb"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+    </div>
+
+    <div class="movie-grid" id="movieGrid" style="display: none;"></div>
+
+    <div class="empty-state" id="movieEmptyState" style="display: none;">
+        <div class="empty-icon"><i class="bi bi-film"></i></div>
+        <h3>No movies found</h3>
+        <p>Try searching with a different movie title.</p>
+    </div>
+
+    <div class="error-state" id="movieErrorState" style="display: none;">
+        <div class="error-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <h3>Something went wrong</h3>
+        <p id="movieErrorMessage">Please try again later.</p>
+    </div>
+</section>
+
+<!-- How it Works -->
+<section class="how-it-works" id="how-it-works">
+    <div class="section-header">
+        <span class="section-badge"><i class="bi bi-book"></i> Guide</span>
+        <h2>How it <span class="gradient-text">Works</span></h2>
+    </div>
+    <div class="steps-grid">
+        <div class="step-card glass">
+            <div class="step-number">1</div>
+            <div class="step-icon"><i class="bi bi-search"></i></div>
+            <h3>Search</h3>
+            <p>Type the movie title in the search bar above.</p>
+        </div>
+        <div class="step-card glass">
+            <div class="step-number">2</div>
+            <div class="step-icon"><i class="bi bi-info-circle"></i></div>
+            <h3>View Details</h3>
+            <p>See movie info, cast, rating, and trailer.</p>
+        </div>
+        <div class="step-card glass">
+            <div class="step-number">3</div>
+            <div class="step-icon"><i class="bi bi-download"></i></div>
+            <h3>Download</h3>
+            <p>Get the movie file instantly (when available).</p>
+        </div>
+    </div>
+</section>
+
+<!-- Movie Details Modal -->
+<div class="modal-overlay" id="movieModal" style="display: none;">
+    <div class="modal-content glass">
+        <button class="modal-close" id="modalClose" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+        </button>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/movies.js') }}"></script>
+{% endblock %}
