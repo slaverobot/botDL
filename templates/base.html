@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block meta_description %}botDL - Download videos and music{% endblock %}">
+    <meta name="author" content="Mohamed Watitu">
+    <title>{% block title %}botDL{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
+
+    <script>
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('botdl-theme') || 'dark');
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <div class="bg-gradient"></div>
+    <div class="noise"></div>
+
+    <div class="app">
+        <!-- Navigation -->
+        <nav class="navbar floating-nav">
+            <div class="nav-container">
+                <div class="logo">
+                    <a href="/">
+                        <span>bot<span class="logo-accent">DL</span></span>
+                    </a>
+                </div>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/downloads">
+                        <i class="bi bi-music-note-beamed"></i> MP3
+                    </a>
+                    <a href="/movies">
+                        <i class="bi bi-film"></i> Movies
+                    </a>
+                    <a href="/#how-it-works">How it Works</a>
+                </div>
+                <div class="nav-right">
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                        <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                    </button>
+                    <div class="powered">
+                        <span>by</span>
+                        <span class="animated-name" id="animatedName">Mohamed Watitu</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        {% block content %}{% endblock %}
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-bottom">
+                <p>&copy; {{ current_year }} botDL. All rights reserved. Powered by Mohamed Watitu</p>
+            </div>
+        </footer>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Theme JS -->
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
