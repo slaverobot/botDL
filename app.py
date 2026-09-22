@@ -74,6 +74,8 @@ def get_base_ydl_opts():
         'skip_unavailable_fragments': True,
         'geo_bypass': True,
         'geo_bypass_country': 'US',
+        'format': 'bestaudio/best',  
+        'remote_components': ['ejs:github'], 
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'web'],
@@ -81,6 +83,7 @@ def get_base_ydl_opts():
             }
         },
     }
+    
     
     # Ongeza proxy kama ipo
     if PROXY_URL:
