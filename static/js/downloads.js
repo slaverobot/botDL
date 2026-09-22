@@ -1,108 +1,53 @@
-// ============= STORE DATA =============
-let searchResults = [];
+// ==========================================================================
+// ============= STATE ======================================================
+// ==========================================================================
 let currentAudio = null;
 let currentPlayingBtn = null;
+let currentTab = 'youtube';
+let currentPage = 1;
+let currentQuery = '';
+let currentGenre = '';
+const PER_PAGE = 20;
 
-// ============= DOM ELEMENTS =============
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const clearBtn = document.getElementById('clearBtn');
+// ==========================================================================
+// ============= DOM ELEMENTS ==============================================
+// ==========================================================================
+const itunesInput = document.getElementById('itunesInput');
+const itunesClearBtn = document.getElementById('itunesClearBtn');
+const itunesSearchBtn = document.getElementById('itunesSearchBtn');
+
+const jamendoInput = document.getElementById('jamendoInput');
+const jamendoClearBtn = document.getElementById('jamendoClearBtn');
+const jamendoSearchBtn = document.getElementById('jamendoSearchBtn');
+
 const resultsGrid = document.getElementById('resultsGrid');
 const skeletonGrid = document.getElementById('skeletonGrid');
 const emptyState = document.getElementById('emptyState');
 const errorState = document.getElementById('errorState');
 const errorMessage = document.getElementById('errorMessage');
-const themeToggle = document.getElementById('themeToggle');
+const pagination = document.getElementById('pagination');
+const prevPage = document.getElementById('prevPage');
+const nextPage = document.getElementById('nextPage');
+const pageInfo = document.getElementById('pageInfo');
 const toastContainer = document.getElementById('toastContainer');
-
-// ==========================================================================
-// ============= LETTER JUMPING ANIMATION ===================================
-// ==========================================================================
-const fullName = 'Mohamed Watitu';
-let currentLetterIndex = 0;
-let animationInterval = null;
-const animatedNameElement = document.getElementById('animatedName');
-const jumpColors = ['#4A8BFF', '#4DD0E1', '#4ADE80', '#4A8BFF', '#4DD0E1'];
-
-function jumpLetter(span, color) {
-    if (!span) return;
-    span.style.willChange = 'transform, color';
-    span.classList.add('jumping');
-    span.style.color = color;
-
-    setTimeout(() => {
-        if (span) {
-            span.classList.remove('jumping');
-            span.style.color = '';
-            setTimeout(() => {
-                span.style.willChange = 'auto';
-            }, 100);
-        }
-    }, 400);
-}
-
-function jumpNextLetter() {
-    if (!animatedNameElement) return;
-    const spans = animatedNameElement.querySelectorAll('.letter-jump');
-    if (spans.length === 0) return;
-
-    const currentSpan = spans[currentLetterIndex];
-    if (currentSpan && currentSpan.textContent.trim() !== '') {
-        jumpLetter(currentSpan, jumpColors[currentLetterIndex % jumpColors.length]);
-    }
-
-    currentLetterIndex++;
-    if (currentLetterIndex >= spans.length) currentLetterIndex = 0;
-}
-
-function initAnimatedName() {
-    if (!animatedNameElement) return;
-
-    animatedNameElement.style.display = 'inline-flex';
-    animatedNameElement.style.alignItems = 'center';
-    animatedNameElement.style.gap = '1px';
-    animatedNameElement.style.flexShrink = '0';
-
-    animatedNameElement.innerHTML = '';
-    fullName.split('').forEach(letter => {
-        const span = document.createElement('span');
-        span.textContent = letter;
-        span.className = 'letter-jump';
-        span.style.display = 'inline-block';
-        span.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.35s ease';
-        if (letter === ' ') {
-            span.style.width = '0.3rem';
-            span.style.minWidth = '0.3rem';
-        }
-        animatedNameElement.appendChild(span);
-    });
-
-    if (animationInterval) clearInterval(animationInterval);
-    animationInterval = setInterval(jumpNextLetter, 1200);
-}
 
 // ==========================================================================
 // ============= TOAST ======================================================
 // ==========================================================================
 function showToast(message, type = 'info') {
     if (!toastContainer) return;
-
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-
     const iconMap = {
         success: 'check-circle-fill',
         error: 'exclamation-triangle-fill',
         info: 'info-circle-fill'
     };
-
     toast.innerHTML = `
         <i class="bi bi-${iconMap[type] || 'info-circle-fill'}"></i>
         <span>${message}</span>
     `;
-
     toastContainer.appendChild(toast);
-
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(20px)';
@@ -111,85 +56,80 @@ function showToast(message, type = 'info') {
 }
 
 // ==========================================================================
-// ============= THEME ======================================================
-// ==========================================================================
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    if (themeToggle) {
-        const icon = themeToggle.querySelector('i');
-        if (icon) {
-            icon.className = theme === 'dark'
-                ? 'bi bi-moon-stars-fill'
-                : 'bi bi-sun-fill';
-        }
-    }
-}
-
-const savedTheme = localStorage.getItem('botdl-theme') || 'dark';
-applyTheme(savedTheme);
-
-themeToggle?.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    localStorage.setItem('botdl-theme', next);
-});
-
-// ==========================================================================
 // ============= STATE HELPERS ==============================================
 // ==========================================================================
-function showSkeleton() {
-    if (skeletonGrid) skeletonGrid.classList.add('active');
+function hideAll() {
     if (resultsGrid) resultsGrid.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
     if (errorState) errorState.style.display = 'none';
-    if (searchBtn) {
-        searchBtn.classList.add('loading');
-        searchBtn.disabled = true;
-    }
+    if (pagination) pagination.style.display = 'none';
+    if (skeletonGrid) skeletonGrid.classList.remove('active');
 }
 
-function hideSkeleton() {
-    if (skeletonGrid) skeletonGrid.classList.remove('active');
-    if (searchBtn) {
-        searchBtn.classList.remove('loading');
-        searchBtn.disabled = false;
-    }
+function showSkeleton() {
+    hideAll();
+    if (skeletonGrid) skeletonGrid.classList.add('active');
 }
 
 function showEmpty() {
-    if (skeletonGrid) skeletonGrid.classList.remove('active');
-    if (resultsGrid) resultsGrid.style.display = 'none';
+    hideAll();
     if (emptyState) emptyState.style.display = 'flex';
-    if (errorState) errorState.style.display = 'none';
 }
 
 function showError(message) {
-    if (skeletonGrid) skeletonGrid.classList.remove('active');
-    if (resultsGrid) resultsGrid.style.display = 'none';
-    if (emptyState) emptyState.style.display = 'none';
+    hideAll();
     if (errorState) errorState.style.display = 'flex';
     if (errorMessage) errorMessage.textContent = message;
 }
 
 // ==========================================================================
-// ============= SEARCH FUNCTION (Jamendo pekee) ============================
+// ============= TAB SWITCHER ===============================================
 // ==========================================================================
-async function searchMusic(query) {
+function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            if (tab === currentTab) return;
+
+            currentTab = tab;
+
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tab}`)?.classList.add('active');
+
+            hideAll();
+        });
+    });
+}
+
+// ==========================================================================
+// ============= ITUNES SEARCH ==============================================
+// ==========================================================================
+async function searchItunes(query) {
     if (!query || query.trim() === '') {
-        showToast('Please enter an artist or song name', 'error');
+        showToast('Please enter a song or artist name', 'error');
         return;
     }
 
+    currentQuery = query.trim();
+
     showSkeleton();
+    if (itunesSearchBtn) {
+        itunesSearchBtn.classList.add('loading');
+        itunesSearchBtn.disabled = true;
+    }
 
     try {
         const response = await fetch(
-            `/api/jamendo/search?q=${encodeURIComponent(query.trim())}&limit=20`
+            `/api/itunes/search?q=${encodeURIComponent(currentQuery)}&limit=25`
         );
         const data = await response.json();
-
-        hideSkeleton();
 
         if (!response.ok || data.error) {
             showError(data.error || 'Search failed');
@@ -203,39 +143,193 @@ async function searchMusic(query) {
             return;
         }
 
-        searchResults = data.tracks;
-        displayTracks(data.tracks);
+        displayItunesTracks(data.tracks);
         showToast(`Found ${data.tracks.length} tracks`, 'success');
 
     } catch (error) {
-        hideSkeleton();
-        console.error('Search error:', error);
-        showError('Something went wrong. Please try again.');
-        showToast('Connection error. Try again.', 'error');
+        console.error('iTunes search error:', error);
+        showError('Connection error. Please try again.');
+        showToast('Connection error', 'error');
+    } finally {
+        if (itunesSearchBtn) {
+            itunesSearchBtn.classList.remove('loading');
+            itunesSearchBtn.disabled = false;
+        }
     }
 }
 
-// ==========================================================================
-// ============= DISPLAY TRACKS =============================================
-// ==========================================================================
-function displayTracks(tracks) {
+function displayItunesTracks(tracks) {
     if (!resultsGrid) return;
-
+    hideAll();
     resultsGrid.innerHTML = '';
     resultsGrid.style.display = 'grid';
 
     tracks.forEach(track => {
         const card = document.createElement('div');
         card.className = 'song-card';
-
         const duration = formatDuration(track.duration);
         const image = track.image || 'https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵';
 
         card.innerHTML = `
             <div class="song-thumbnail-wrapper">
-                <img src="${image}"
-                     alt="${escapeHtml(track.title)}"
-                     loading="lazy"
+                <img src="${image}" alt="${escapeHtml(track.title)}" loading="lazy"
+                     onerror="this.src='https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵'">
+                <span class="song-duration">${duration}</span>
+                <span class="source-badge">botDL</span>
+            </div>
+            <div class="song-info">
+                <h3 class="song-title">${escapeHtml(track.title)}</h3>
+                <p class="song-artist">
+                    <i class="bi bi-person"></i>
+                    ${escapeHtml(track.artist)}
+                </p>
+                <div class="song-actions">
+                    <button class="preview-btn" 
+                            data-audio="${escapeHtml(track.preview || '')}">
+                        <i class="bi bi-play-fill"></i> Preview
+                    </button>
+                    <button class="download-btn itunes-download"
+                            data-id="${track.id}"
+                            data-title="${escapeHtml(track.title)}"
+                            data-artist="${escapeHtml(track.artist)}">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        `;
+        resultsGrid.appendChild(card);
+    });
+
+    resultsGrid.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.addEventListener('click', handlePreview);
+    });
+
+    resultsGrid.querySelectorAll('.itunes-download').forEach(btn => {
+        btn.addEventListener('click', handleItunesDownload);
+    });
+}
+
+// ==========================================================================
+// ============= ITUNES DOWNLOAD (Full song via yt-dlp) =====================
+// ==========================================================================
+async function handleItunesDownload(e) {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const title = btn.dataset.title;
+    const artist = btn.dataset.artist;
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Downloading...';
+    showToast(`Downloading "${title}"...`, 'info');
+
+    try {
+        const params = new URLSearchParams({ title, artist });
+        const response = await fetch(`/api/itunes/download-full?${params}`);
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Download failed');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${sanitizeFilename(artist)} - ${sanitizeFilename(title)}.mp3`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        showToast(`"${title}" downloaded!`, 'success');
+        btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Done';
+
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }, 2000);
+
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast(error.message || 'Download failed. Try again.', 'error');
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+// ==========================================================================
+// ============= JAMENDO SEARCH =============================================
+// ==========================================================================
+async function searchJamendo(query, genre = '', page = 1) {
+    if (!query || query.trim() === '') {
+        showToast('Please enter an artist or song name', 'error');
+        return;
+    }
+
+    currentQuery = query.trim();
+    currentGenre = genre;
+    currentPage = page;
+
+    showSkeleton();
+    if (jamendoSearchBtn) {
+        jamendoSearchBtn.classList.add('loading');
+        jamendoSearchBtn.disabled = true;
+    }
+
+    try {
+        const offset = (page - 1) * PER_PAGE;
+        let url = `/api/jamendo/search?q=${encodeURIComponent(currentQuery)}&limit=${PER_PAGE}&offset=${offset}`;
+        if (genre) {
+            url += `&genre=${encodeURIComponent(genre)}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            showError(data.error || 'Search failed');
+            showToast(data.error || 'Search failed', 'error');
+            return;
+        }
+
+        if (!data.tracks || data.tracks.length === 0) {
+            showEmpty();
+            showToast(`No results found for "${query}"`, 'error');
+            return;
+        }
+
+        displayJamendoTracks(data.tracks);
+        showPagination(data.total || data.tracks.length, page);
+        showToast(`Found ${data.tracks.length} tracks from Jamendo`, 'success');
+
+    } catch (error) {
+        console.error('Jamendo search error:', error);
+        showError('Connection error. Please try again.');
+        showToast('Connection error', 'error');
+    } finally {
+        if (jamendoSearchBtn) {
+            jamendoSearchBtn.classList.remove('loading');
+            jamendoSearchBtn.disabled = false;
+        }
+    }
+}
+
+function displayJamendoTracks(tracks) {
+    if (!resultsGrid) return;
+    hideAll();
+    resultsGrid.innerHTML = '';
+    resultsGrid.style.display = 'grid';
+
+    tracks.forEach(track => {
+        const card = document.createElement('div');
+        card.className = 'song-card';
+        const duration = formatDuration(track.duration);
+        const image = track.image || 'https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵';
+
+        card.innerHTML = `
+            <div class="song-thumbnail-wrapper">
+                <img src="${image}" alt="${escapeHtml(track.title)}" loading="lazy"
                      onerror="this.src='https://via.placeholder.com/300x300/141A2B/4A8BFF?text=🎵'">
                 <span class="song-duration">${duration}</span>
             </div>
@@ -251,29 +345,50 @@ function displayTracks(tracks) {
                     </button>
                     <button class="download-btn"
                             data-id="${track.id}"
-                            data-title="${escapeHtml(track.title)}"
-                            data-artist="${escapeHtml(track.artist)}">
+                            data-title="${escapeHtml(track.title)}">
                         <i class="bi bi-download"></i> Download
                     </button>
                 </div>
             </div>
         `;
-
         resultsGrid.appendChild(card);
     });
 
-    // Attach event listeners
     document.querySelectorAll('.preview-btn').forEach(btn => {
         btn.addEventListener('click', handlePreview);
     });
-
-    document.querySelectorAll('.download-btn').forEach(btn => {
+    document.querySelectorAll('.download-btn:not(.itunes-download)').forEach(btn => {
         btn.addEventListener('click', handleDownload);
     });
 }
 
 // ==========================================================================
-// ============= PREVIEW HANDLER ============================================
+// ============= PAGINATION (Jamendo pekee) =================================
+// ==========================================================================
+function showPagination(total, page) {
+    if (!pagination) return;
+    pagination.style.display = 'flex';
+    if (pageInfo) pageInfo.textContent = `Page ${page}`;
+    if (prevPage) prevPage.disabled = page <= 1;
+    if (nextPage) nextPage.disabled = total < PER_PAGE;
+}
+
+function initPagination() {
+    prevPage?.addEventListener('click', () => {
+        if (currentPage > 1) {
+            searchJamendo(currentQuery, currentGenre, currentPage - 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+
+    nextPage?.addEventListener('click', () => {
+        searchJamendo(currentQuery, currentGenre, currentPage + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
+// ==========================================================================
+// ============= PREVIEW HANDLER (Shared) ===================================
 // ==========================================================================
 function handlePreview(e) {
     e.preventDefault();
@@ -281,11 +396,10 @@ function handlePreview(e) {
     const audioUrl = btn.dataset.audio;
 
     if (!audioUrl) {
-        showToast('Preview not available for this track', 'error');
+        showToast('Preview not available', 'error');
         return;
     }
 
-    // Kama ni track hii hii inayocheza - pause
     if (currentAudio && currentPlayingBtn === btn) {
         currentAudio.pause();
         currentAudio = null;
@@ -295,7 +409,6 @@ function handlePreview(e) {
         return;
     }
 
-    // Pause track nyingine kama ipo
     if (currentAudio) {
         currentAudio.pause();
         if (currentPlayingBtn) {
@@ -304,15 +417,12 @@ function handlePreview(e) {
         }
     }
 
-    // Anza preview mpya
     currentAudio = new Audio(audioUrl);
     currentPlayingBtn = btn;
-
     btn.classList.add('playing');
     btn.innerHTML = '<i class="bi bi-pause-fill"></i> Playing';
 
-    currentAudio.play().catch(err => {
-        console.error('Play error:', err);
+    currentAudio.play().catch(() => {
         showToast('Cannot play preview', 'error');
         btn.classList.remove('playing');
         btn.innerHTML = '<i class="bi bi-play-fill"></i> Preview';
@@ -329,7 +439,7 @@ function handlePreview(e) {
 }
 
 // ==========================================================================
-// ============= DOWNLOAD HANDLER (Jamendo full song) =======================
+// ============= DOWNLOAD HANDLER (Jamendo pekee) ===========================
 // ==========================================================================
 function handleDownload(e) {
     e.preventDefault();
@@ -345,29 +455,23 @@ function handleDownload(e) {
     btn.disabled = true;
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Downloading...';
-
     showToast(`Downloading "${title}"...`, 'info');
 
-    // Trigger download - browser itaanza kupakua
-    const downloadUrl = `/api/jamendo/download?id=${trackId}`;
-
     const a = document.createElement('a');
-    a.href = downloadUrl;
+    a.href = `/api/jamendo/download?id=${trackId}`;
     a.download = `${sanitizeFilename(title)}.mp3`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 
-    // Reset button baada ya sekunde 3
     setTimeout(() => {
-        btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Done';
         showToast(`"${title}" download started!`, 'success');
-
         setTimeout(() => {
             btn.innerHTML = originalHtml;
+            btn.disabled = false;
         }, 2000);
-    }, 2000);
+    }, 1500);
 }
 
 // ==========================================================================
@@ -375,119 +479,101 @@ function handleDownload(e) {
 // ==========================================================================
 function formatDuration(seconds) {
     if (!seconds && seconds !== 0) return '--:--';
-    const totalSeconds = Math.floor(Number(seconds));
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
+    const total = Math.floor(Number(seconds));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 function escapeHtml(str) {
     if (!str) return '';
-    return String(str).replace(/[&<>"']/g, m => {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        };
-        return map[m];
-    });
+    return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[m]);
 }
 
 function sanitizeFilename(name) {
     if (!name) return 'audio';
-    return name
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .substring(0, 80);
+    return name.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim().substring(0, 80);
 }
 
 // ==========================================================================
 // ============= EVENT LISTENERS ============================================
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Search button
-    searchBtn?.addEventListener('click', () => {
-        searchMusic(searchInput?.value || '');
-    });
+    initTabs();
+    initPagination();
 
-    // Enter key
-    searchInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            searchMusic(searchInput.value);
+    // ============ iTunes ============
+    itunesSearchBtn?.addEventListener('click', () => {
+        searchItunes(itunesInput?.value || '');
+    });
+    itunesInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchItunes(itunesInput.value);
+    });
+    itunesInput?.addEventListener('input', () => {
+        if (itunesClearBtn) {
+            itunesClearBtn.style.display = itunesInput.value.trim() ? 'flex' : 'none';
         }
     });
-
-    // Clear button visibility
-    searchInput?.addEventListener('input', () => {
-        if (clearBtn) {
-            clearBtn.style.display = searchInput.value.trim() ? 'flex' : 'none';
-        }
+    itunesClearBtn?.addEventListener('click', () => {
+        itunesInput.value = '';
+        itunesClearBtn.style.display = 'none';
+        itunesInput.focus();
     });
 
-    // Clear button
-    clearBtn?.addEventListener('click', () => {
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.focus();
-        }
-        if (clearBtn) clearBtn.style.display = 'none';
-        if (resultsGrid) resultsGrid.style.display = 'none';
-        if (emptyState) emptyState.style.display = 'none';
-        if (errorState) errorState.style.display = 'none';
-    });
-
-    // Quick tags
-    document.querySelectorAll('.quick-tag').forEach(tag => {
+    document.querySelectorAll('#tab-youtube .quick-tag').forEach(tag => {
         tag.addEventListener('click', () => {
             const query = tag.dataset.query;
-            if (searchInput) searchInput.value = query;
-            if (clearBtn) clearBtn.style.display = 'flex';
-            searchMusic(query);
+            if (itunesInput) itunesInput.value = query;
+            if (itunesClearBtn) itunesClearBtn.style.display = 'flex';
+            searchItunes(query);
         });
     });
 
-    // Initialize animated name
-    initAnimatedName();
-
-    // Navbar scroll effect
-    handleNavbarScroll();
-});
-
-// ==========================================================================
-// ============= NAVBAR SCROLL ==============================================
-// ==========================================================================
-function handleNavbarScroll() {
-    const navbar = document.querySelector('.navbar');
-    if (!navbar) return;
-    if (window.scrollY > 50) {
-        navbar.classList.add('scrolled');
-    } else {
-        navbar.classList.remove('scrolled');
-    }
-}
-
-let scrollTimeout;
-window.addEventListener('scroll', () => {
-    if (scrollTimeout) return;
-    scrollTimeout = requestAnimationFrame(() => {
-        handleNavbarScroll();
-        scrollTimeout = null;
+    // ============ Jamendo ============
+    jamendoSearchBtn?.addEventListener('click', () => {
+        searchJamendo(jamendoInput?.value || '', currentGenre, 1);
     });
-}, { passive: true });
+    jamendoInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchJamendo(jamendoInput.value, currentGenre, 1);
+    });
+    jamendoInput?.addEventListener('input', () => {
+        if (jamendoClearBtn) {
+            jamendoClearBtn.style.display = jamendoInput.value.trim() ? 'flex' : 'none';
+        }
+    });
+    jamendoClearBtn?.addEventListener('click', () => {
+        jamendoInput.value = '';
+        jamendoClearBtn.style.display = 'none';
+        jamendoInput.focus();
+    });
 
-// ==========================================================================
-// ============= PAGE LOAD FADE =============================================
-// ==========================================================================
-document.body.style.opacity = '0';
-document.body.style.transition = 'opacity 0.5s ease';
-window.addEventListener('load', () => {
-    document.body.style.opacity = '1';
+    document.querySelectorAll('.genre-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            document.querySelectorAll('.genre-tag').forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+            const genre = tag.dataset.genre;
+            if (jamendoInput?.value.trim()) {
+                searchJamendo(jamendoInput.value, genre, 1);
+            } else {
+                currentGenre = genre;
+            }
+        });
+    });
+
+    document.querySelectorAll('#tab-jamendo .quick-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            const query = tag.dataset.query;
+            if (jamendoInput) jamendoInput.value = query;
+            if (jamendoClearBtn) jamendoClearBtn.style.display = 'flex';
+            searchJamendo(query, currentGenre, 1);
+        });
+    });
 });
 
 // ==========================================================================
 // ============= GLOBAL EXPORTS =============================================
 // ==========================================================================
-window.searchMusic = searchMusic;
+window.searchItunes = searchItunes;
+window.searchJamendo = searchJamendo;
