@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_dotenv()  # Inapakia .env kwenye environment kabla ya kila kitu
+load_dotenv()
 
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from flask_cors import CORS
@@ -11,16 +11,30 @@ import tempfile
 import requests
 from datetime import datetime
 
-# Import MP3 blueprint na Config
+# Import blueprints na Config
 from routes.mp3_routes import mp3_bp
+from routes.movie_routes import movie_bp
 from config import Config
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'botdl-secret-key')
 CORS(app)
 
-# Register MP3 blueprint
+# Register blueprints
+app.register_blueprint(movie_bp)
 app.register_blueprint(mp3_bp)
+
+
+# ==========================================================================
+# ============ CONTEXT PROCESSOR ===========================================
+# ==========================================================================
+@app.context_processor
+def inject_globals():
+    """Inject variables kwa templates zote"""
+    return {
+        'current_year': datetime.now().year
+    }
+
 
 # ============ YOUTUBE HEADERS ============
 YDL_HEADERS = {
@@ -33,12 +47,52 @@ YDL_HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
+# ============ PROXY SETTINGS ============
+# Weka proxy kama unayo. Kama huna, acha None.
+# Mfano: 'http://user:pass@proxy-server:port' au 'socks5://user:pass@proxy-server:port'
+PROXY_URL = os.environ.get('PROXY_URL', None)
+
 # ============ DOWNLOAD DIRECTORY ============
 if os.environ.get('RENDER'):
     DOWNLOAD_DIR = '/tmp/downloads'
 else:
     DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+
+# ============ BASE YDL OPTIONS (Shared) ============
+def get_base_ydl_opts():
+    """Base yt-dlp options zinazotumika kwa routes zote"""
+    opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'headers': YDL_HEADERS,
+        'user_agent': YDL_HEADERS['User-Agent'],
+        'socket_timeout': 30,
+        'retries': 10,
+        'fragment_retries': 10,
+        'skip_unavailable_fragments': True,
+        'geo_bypass': True,
+        'geo_bypass_country': 'US',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'skip': ['hls', 'dash'],
+            }
+        },
+    }
+    
+    # Ongeza proxy kama ipo
+    if PROXY_URL:
+        opts['proxy'] = PROXY_URL
+    
+    # Ongeza cookies kama file ipo
+    cookies_file = os.path.join(os.path.dirname(__file__), 'cookies.txt')
+    if os.path.exists(cookies_file):
+        opts['cookiefile'] = cookies_file
+    
+    return opts
+
 
 # ============ HELPER FUNCTIONS ============
 def get_platform(url):
@@ -55,6 +109,7 @@ def get_platform(url):
         return "Twitter"
     return "Unknown"
 
+
 def format_duration(seconds):
     if not seconds:
         return "00:00"
@@ -64,7 +119,10 @@ def format_duration(seconds):
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
 
-# ============ HEALTH CHECK ROUTE (Render) ============
+
+# ==========================================================================
+# ============ HEALTH CHECK ===============================================
+# ==========================================================================
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render"""
@@ -74,12 +132,18 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     }), 200
 
-# ============ MAIN ROUTE ============
+
+# ==========================================================================
+# ============ MAIN ROUTE =================================================
+# ==========================================================================
 @app.route('/')
 def index():
     return render_template('index.html', user=None)
 
-# ============ VIDEO ANALYSIS ROUTE ============
+
+# ==========================================================================
+# ============ VIDEO ANALYSIS ROUTE =======================================
+# ==========================================================================
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
     """Analyze video and return available formats"""
@@ -89,13 +153,8 @@ def analyze_video():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'extract_flat': False,
-        'headers': YDL_HEADERS,
-        'user_agent': YDL_HEADERS['User-Agent'],
-    }
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts['extract_flat'] = False
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -104,7 +163,6 @@ def analyze_video():
         if not info:
             return jsonify({'error': 'Could not fetch video info'}), 500
         
-        # Extract available formats
         formats = []
         seen = set()
         
@@ -125,7 +183,6 @@ def analyze_video():
                         'unavailable': False
                     })
         
-        # Add MP3 audio option
         formats.append({
             'format_id': 'bestaudio/best',
             'label': 'MP3 Audio',
@@ -151,7 +208,83 @@ def analyze_video():
         print(f"Analyze error: {e}")
         return jsonify({'error': str(e)[:200]}), 500
 
-# ============ VIDEO DOWNLOAD ROUTE ============
+
+# ==========================================================================
+# ============ ITUNES FULL DOWNLOAD ROUTE (yt-dlp) ========================
+# ==========================================================================
+@app.route('/api/itunes/download-full')
+def itunes_download_full():
+    """Download full song kwa kutafuta YouTube kupitia yt-dlp"""
+    title = request.args.get('title', '').strip()
+    artist = request.args.get('artist', '').strip()
+
+    if not title:
+        return jsonify({'error': 'No title provided'}), 400
+
+    search_query = f"{artist} - {title}" if artist else title
+
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
+        'default_search': 'ytsearch1',
+    })
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"ytsearch1:{search_query}", download=True)
+
+            if not info:
+                return jsonify({'error': 'Download failed'}), 500
+
+            # ytsearch1 inarudisha playlist - chukua ya kwanza
+            if 'entries' in info:
+                info = info['entries'][0]
+
+            downloaded_file = None
+            base = os.path.splitext(ydl.prepare_filename(info))[0]
+
+            for ext in ['.mp3']:
+                test_file = base + ext
+                if os.path.exists(test_file):
+                    downloaded_file = test_file
+                    break
+
+            if not downloaded_file or not os.path.exists(downloaded_file):
+                return jsonify({'error': 'MP3 file not found'}), 500
+
+            safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
+
+            response = send_file(
+                downloaded_file,
+                as_attachment=True,
+                download_name=f"{safe_title}.mp3",
+                mimetype='audio/mpeg'
+            )
+
+            @response.call_on_close
+            def cleanup():
+                try:
+                    if os.path.exists(downloaded_file):
+                        os.remove(downloaded_file)
+                except:
+                    pass
+
+            return response
+
+    except Exception as e:
+        print(f"iTunes full download error: {e}")
+        return jsonify({'error': str(e)[:200]}), 500
+
+
+# ==========================================================================
+# ============ VIDEO DOWNLOAD ROUTE =======================================
+# ==========================================================================
 @app.route('/download', methods=['POST'])
 def download_video():
     """Download video with selected format"""
@@ -168,13 +301,8 @@ def download_video():
     
     is_audio = format_id == 'bestaudio/best'
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'headers': YDL_HEADERS,
-        'user_agent': YDL_HEADERS['User-Agent'],
-        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
-    }
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts['outtmpl'] = os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s')
     
     if is_audio:
         ydl_opts['format'] = 'bestaudio/best'
@@ -240,7 +368,10 @@ def download_video():
         print(f"Download error: {e}")
         return jsonify({'error': str(e)[:200]}), 500
 
-# ============ MP3 CONVERTER ROUTE ============
+
+# ==========================================================================
+# ============ MP3 CONVERTER ROUTE ========================================
+# ==========================================================================
 @app.route('/convert-to-mp3', methods=['POST'])
 def convert_to_mp3():
     """Convert video to MP3 audio only"""
@@ -261,11 +392,8 @@ def convert_to_mp3():
     
     quality = bitrate_map.get(bitrate, '192')
     
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'headers': YDL_HEADERS,
-        'user_agent': YDL_HEADERS['User-Agent'],
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -273,7 +401,7 @@ def convert_to_mp3():
             'preferredquality': quality,
         }],
         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),
-    }
+    })
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -319,9 +447,8 @@ def convert_to_mp3():
 
 
 # ==========================================================================
-# ============ JAMENDO API ROUTES ==========================================
+# ============ JAMENDO API ROUTES =========================================
 # ==========================================================================
-
 @app.route('/api/jamendo/search')
 def jamendo_search():
     """Tafuta nyimbo kwenye Jamendo"""
@@ -331,13 +458,11 @@ def jamendo_search():
     if not query:
         return jsonify({'error': 'No query provided'}), 400
     
-    # Hakikisha limit haizidi max
     try:
         limit = min(int(limit), Config.JAMENDO_MAX_LIMIT)
     except ValueError:
         limit = Config.JAMENDO_DEFAULT_LIMIT
     
-    # Angalia kama Client ID imewekwa
     if not Config.JAMENDO_CLIENT_ID:
         return jsonify({'error': 'Jamendo Client ID not configured'}), 500
     
@@ -356,13 +481,11 @@ def jamendo_search():
         response = requests.get(url, params=params, timeout=10)
         data = response.json()
         
-        # Angalia rate limit (envelope code 6)
         if data.get('headers', {}).get('code') == 6:
             return jsonify({'error': 'Rate limit exceeded. Try again later.'}), 429
         
         tracks = []
         for track in data.get('results', []):
-            # Chuja tu tracks zinazoruhusiwa kupakua
             if not track.get('audiodownload_allowed', False):
                 continue
             
@@ -411,7 +534,6 @@ def jamendo_download():
     }
     
     try:
-        # Stream faili moja kwa moja kwa mtumiaji
         response = requests.get(url, params=params, stream=True, timeout=30)
         
         if response.status_code != 200:
@@ -430,13 +552,77 @@ def jamendo_download():
         return jsonify({'error': str(e)[:200]}), 500
 
 
-# ============ MAIN ============
+# ==========================================================================
+# ============ ITUNES SEARCH API ==========================================
+# ==========================================================================
+@app.route('/api/itunes/search')
+def itunes_search():
+    """Tafuta nyimbo kwenye iTunes Search API"""
+    query = request.args.get('q', '').strip()
+    limit = request.args.get('limit', 25)
+    
+    if not query:
+        return jsonify({'error': 'No query provided'}), 400
+    
+    try:
+        limit = min(int(limit), 50)
+    except ValueError:
+        limit = 25
+    
+    url = 'https://itunes.apple.com/search'
+    params = {
+        'term': query,
+        'media': 'music',
+        'entity': 'song',
+        'limit': limit,
+        'country': 'US',
+        'lang': 'en_us'
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        tracks = []
+        for item in data.get('results', []):
+            if not item.get('previewUrl'):
+                continue
+            
+            tracks.append({
+                'id': item.get('trackId'),
+                'title': item.get('trackName', 'Unknown'),
+                'artist': item.get('artistName', 'Unknown'),
+                'album': item.get('collectionName', ''),
+                'duration': (item.get('trackTimeMillis', 0) or 0) // 1000,
+                'image': (item.get('artworkUrl100', '') or '').replace('100x100', '300x300'),
+                'preview': item.get('previewUrl', ''),
+                'genre': item.get('primaryGenreName', ''),
+                'source': 'itunes'
+            })
+        
+        return jsonify({
+            'tracks': tracks,
+            'total': len(tracks),
+            'query': query
+        })
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Request timeout'}), 504
+    except Exception as e:
+        print(f"iTunes search error: {e}")
+        return jsonify({'error': str(e)[:200]}), 500
+
+
+# ==========================================================================
+# ============ MAIN ========================================================
+# ==========================================================================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("=" * 55)
-    print("🎬 botDL - Video Downloader + Jamendo Music")
+    print("🎬 botDL - Video Downloader + Jamendo Music + iTunes")
     print(f"📍 Server: http://0.0.0.0:{port}")
     print("📥 No Login Required - Public Access")
     print("🎵 Jamendo API:", "✅ Configured" if Config.JAMENDO_CLIENT_ID else "❌ Missing Client ID")
+    print("🔒 Proxy:", "✅ Configured" if PROXY_URL else "❌ Not configured")
     print("=" * 55)
     app.run(debug=False, host='0.0.0.0', port=port)
