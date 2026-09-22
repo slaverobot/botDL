@@ -1,173 +1,229 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Search and download MP3 music from any artist or song.">
-    <meta name="author" content="Mohamed Watitu">
-    <title>MP3 Downloads — botDL</title>
+{% block title %}MP3 Downloads — botDL{% endblock %}
+{% block meta_description %}Search and download MP3 music from any artist or song.{% endblock %}
 
-    <script>
-        document.documentElement.setAttribute('data-theme', localStorage.getItem('botdl-theme') || 'dark');
-    </script>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/downloads.css') }}">
+{% endblock %}
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/downloads.css') }}">
-</head>
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-mp3">
+    <h1 class="hero-title">
+        Search & Download <span class="gradient-text">Music</span>
+    </h1>
+    <p class="hero-subtitle">
+        Find any song or artist from iTunes and Jamendo, and download high-quality MP3 files instantly.
+    </p>
 
-<body>
-    <div class="bg-gradient"></div>
-    <div class="noise"></div>
-
-    <div class="app">
-        <!-- Navigation -->
-        <nav class="navbar floating-nav">
-            <div class="nav-container">
-                <div class="logo">
-                    <span>bot<span class="logo-accent">DL</span></span>
-                </div>
-
-                <div class="nav-links">
-                    <a href="/">Home</a>
-                    <a href="/downloads" class="nav-highlight">🎵 MP3 Downloads</a>
-                    <a href="#how-it-works">How it Works</a>
-                </div>
-
-                <div class="nav-right">
-                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                    <div class="powered">
-                        <span>by</span>
-                        <span class="animated-name" id="animatedName">Mohamed Watitu</span>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Hero Section -->
-        <section class="hero-mp3">
-            <h1 class="hero-title">
-                Search & Download <span class="gradient-text">MP3 Music</span>
-            </h1>
-            <p class="hero-subtitle">
-                Find any song or artist and download high-quality MP3 files instantly.
-            </p>
-
-            <!-- Search Input -->
-            <div class="search-container glass">
-                <div class="search-input-wrapper">
-                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.35-4.35" />
-                    </svg>
-                    <input type="text" id="searchInput" placeholder="Search by artist or song name...">
-                    <button id="clearBtn" class="clear-btn" style="display: none;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <button id="searchBtn" class="search-btn">
-                    <span>Search</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                    <div class="btn-loader"></div>
-                </button>
-            </div>
-
-            <!-- Quick Tags -->
-            <div class="quick-tags">
-                <span class="tag-label">Popular:</span>
-                <button class="quick-tag" data-query="Diamond Platnumz">Diamond Platnumz</button>
-                <button class="quick-tag" data-query="Harmonize">Harmonize</button>
-                <button class="quick-tag" data-query="Zuchu">Zuchu</button>
-                <button class="quick-tag" data-query="Rayvanny">Rayvanny</button>
-                <button class="quick-tag" data-query="Ali Kiba">Ali Kiba</button>
-            </div>
-        </section>
-
-        <!-- Results Section -->
-        <section class="results-section" id="resultsSection">
-            <div class="skeleton-grid" id="skeletonGrid">
-                <div class="skeleton-item">
-                    <div class="skeleton-thumb"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line short"></div>
-                </div>
-                <div class="skeleton-item">
-                    <div class="skeleton-thumb"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line short"></div>
-                </div>
-                <div class="skeleton-item">
-                    <div class="skeleton-thumb"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line short"></div>
-                </div>
-                <div class="skeleton-item">
-                    <div class="skeleton-thumb"></div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line short"></div>
-                </div>
-            </div>
-
-            <div class="results-grid" id="resultsGrid" style="display: none;"></div>
-
-            <div class="empty-state" id="emptyState" style="display: none;">
-                <div class="empty-icon">🎵</div>
-                <h3>No results found</h3>
-                <p>Try searching with a different artist or song name.</p>
-            </div>
-
-            <div class="error-state" id="errorState" style="display: none;">
-                <div class="error-icon">⚠️</div>
-                <h3>Something went wrong</h3>
-                <p id="errorMessage">Please try again later.</p>
-            </div>
-        </section>
-
-        <!-- How it Works -->
-        <section class="how-it-works" id="how-it-works">
-            <div class="section-header">
-                <span class="section-badge">📖 Guide</span>
-                <h2>How it <span class="gradient-text">Works</span></h2>
-            </div>
-
-            <div class="steps-grid">
-                <div class="step-card glass">
-                    <div class="step-number">1</div>
-                    <div class="step-icon">🔍</div>
-                    <h3>Search</h3>
-                    <p>Type the artist name or song title in the search bar above.</p>
-                </div>
-                <div class="step-card glass">
-                    <div class="step-number">2</div>
-                    <div class="step-icon">🎧</div>
-                    <h3>Preview</h3>
-                    <p>Listen to a short preview to confirm it's the right song.</p>
-                </div>
-                <div class="step-card glass">
-                    <div class="step-number">3</div>
-                    <div class="step-icon">⬇️</div>
-                    <h3>Download</h3>
-                    <p>Click download and get your MP3 file instantly.</p>
-                </div>
-            </div>
-        </section>
-
-        <footer class="footer">
-            <div class="footer-bottom">
-                <p>&copy; 2026 botDL. All rights reserved. Powered by Mohamed Watitu</p>
-            </div>
-        </footer>
+    <!-- Tab Switcher -->
+    <div class="tab-switcher" role="tablist">
+        <button class="tab-btn active" data-tab="youtube" role="tab" aria-selected="true">
+            <i class="bi bi-youtube"></i>
+            <span>Youtube MP3</span>
+        </button>
+        <button class="tab-btn" data-tab="jamendo" role="tab" aria-selected="false">
+            <i class="bi bi-music-note-list"></i>
+            <span>Jamendo Music</span>
+        </button>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
-    <script src="{{ url_for('static', filename='js/downloads.js') }}"></script>
-</body>
+    <!-- iTunes Tab -->
+    <!-- iTunes Tab (formerly YouTube MP3) -->
+    <div class="tab-content active" id="tab-youtube">
+        <div class="search-container glass">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search input-icon"></i>
+                <input type="text" id="itunesInput" placeholder="Search by artist or song name...">
+                <button id="itunesClearBtn" class="clear-btn" style="display: none;" aria-label="Clear">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <button id="itunesSearchBtn" class="search-btn">
+                <span>Search</span>
+                <i class="bi bi-arrow-right btn-icon"></i>
+                <div class="btn-loader"></div>
+            </button>
+        </div>
 
-</html>
+        <!-- Quick Tags -->
+        <div class="quick-tags">
+            <span class="tag-label">Popular:</span>
+            <button class="quick-tag" data-query="Diamond Platnumz">Diamond Platnumz</button>
+            <button class="quick-tag" data-query="Harmonize">Harmonize</button>
+            <button class="quick-tag" data-query="Zuchu">Zuchu</button>
+            <button class="quick-tag" data-query="Rayvanny">Rayvanny</button>
+            <button class="quick-tag" data-query="Ali Kiba">Ali Kiba</button>
+        </div>
+    </div>
+
+    <!-- Jamendo Tab -->
+    <div class="tab-content" id="tab-jamendo">
+        <div class="search-container glass">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search input-icon"></i>
+                <input type="text" id="jamendoInput" placeholder="Search by artist or song name...">
+                <button id="jamendoClearBtn" class="clear-btn" style="display: none;" aria-label="Clear">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <button id="jamendoSearchBtn" class="search-btn">
+                <span>Search</span>
+                <i class="bi bi-arrow-right btn-icon"></i>
+                <div class="btn-loader"></div>
+            </button>
+        </div>
+
+        <!-- Genre Filters -->
+        <div class="genre-filters">
+            <span class="tag-label">Genres:</span>
+            <button class="genre-tag active" data-genre="">All</button>
+            <button class="genre-tag" data-genre="rock">Rock</button>
+            <button class="genre-tag" data-genre="pop">Pop</button>
+            <button class="genre-tag" data-genre="jazz">Jazz</button>
+            <button class="genre-tag" data-genre="electronic">Electronic</button>
+            <button class="genre-tag" data-genre="hiphop">Hip-Hop</button>
+            <button class="genre-tag" data-genre="classical">Classical</button>
+            <button class="genre-tag" data-genre="world">World</button>
+        </div>
+
+        <!-- Quick Tags -->
+        <div class="quick-tags">
+            <span class="tag-label">Popular:</span>
+            <button class="quick-tag" data-query="piano">Piano</button>
+            <button class="quick-tag" data-query="jazz">Jazz</button>
+            <button class="quick-tag" data-query="chill">Chill</button>
+            <button class="quick-tag" data-query="rock">Rock</button>
+            <button class="quick-tag" data-query="electronic">Electronic</button>
+        </div>
+    </div>
+</section>
+
+<!-- Results Section -->
+<section class="results-section" id="resultsSection">
+    <!-- Skeleton -->
+    <div class="skeleton-grid" id="skeletonGrid">
+        <div class="skeleton-item">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+        </div>
+        <div class="skeleton-item">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+        </div>
+        <div class="skeleton-item">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+        </div>
+        <div class="skeleton-item">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+        </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div class="results-grid" id="resultsGrid" style="display: none;"></div>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination" style="display: none;">
+        <button class="page-btn" id="prevPage" disabled>
+            <i class="bi bi-chevron-left"></i> Prev
+        </button>
+        <span class="page-info" id="pageInfo">Page 1</span>
+        <button class="page-btn" id="nextPage">
+            Next <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">
+            <i class="bi bi-music-note-list"></i>
+        </div>
+        <h3>No results found</h3>
+        <p>Try searching with a different artist or song name.</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" id="errorState" style="display: none;">
+        <div class="error-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <h3>Something went wrong</h3>
+        <p id="errorMessage">Please try again later.</p>
+    </div>
+</section>
+
+<!-- Social Links Section -->
+<section class="social-links-section">
+    <div class="social-links-header">
+        <span class="section-badge">
+            <i class="bi bi-globe2"></i> Connect
+        </span>
+        <h3>Follow <span class="gradient-text">botDL</span></h3>
+    </div>
+
+    <div class="social-links-grid">
+        <a href="https://instagram.com/yourhandle" target="_blank" rel="noopener noreferrer"
+            class="social-link instagram" aria-label="Instagram">
+            <img src="{{ url_for('static', filename='assets/IG.jpg') }}" alt="Instagram" class="social-icon">
+            <span class="social-name">Instagram</span>
+        </a>
+
+        <a href="https://www.youtube.com/@luckypatchermodx" target="_blank" rel="noopener noreferrer"
+            class="social-link youtube" aria-label="YouTube">
+            <img src="{{ url_for('static', filename='assets/youtube.png') }}" alt="YouTube" class="social-icon">
+            <span class="social-name">YouTube</span>
+        </a>
+
+        <a href="https://pinterest.com/luckypatchermodx" target="_blank" rel="noopener noreferrer"
+            class="social-link pinterest" aria-label="Pinterest">
+            <img src="{{ url_for('static', filename='assets/pinterest.png') }}" alt="Pinterest" class="social-icon">
+            <span class="social-name">Pinterest</span>
+        </a>
+
+        <a href="https://facebook.com/luckypatchermodx" target="_blank" rel="noopener noreferrer"
+            class="social-link facebook" aria-label="Facebook">
+            <img src="{{ url_for('static', filename='assets/facebook.png') }}" alt="Facebook" class="social-icon">
+            <span class="social-name">Facebook</span>
+        </a>
+    </div>
+</section>
+
+<!-- How it Works -->
+<section class="how-it-works" id="how-it-works">
+    <div class="section-header">
+        <span class="section-badge"><i class="bi bi-book"></i> Guide</span>
+        <h2>How it <span class="gradient-text">Works</span></h2>
+    </div>
+    <div class="steps-grid">
+        <div class="step-card glass">
+            <div class="step-number">1</div>
+            <div class="step-icon"><i class="bi bi-search"></i></div>
+            <h3>Search</h3>
+            <p>Type the artist name or song title in the search bar above.</p>
+        </div>
+        <div class="step-card glass">
+            <div class="step-number">2</div>
+            <div class="step-icon"><i class="bi bi-headphones"></i></div>
+            <h3>Preview</h3>
+            <p>Listen to a short preview to confirm it's the right song.</p>
+        </div>
+        <div class="step-card glass">
+            <div class="step-number">3</div>
+            <div class="step-icon"><i class="bi bi-download"></i></div>
+            <h3>Download</h3>
+            <p>Click download and get your MP3 file instantly.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/downloads.js') }}"></script>
+{% endblock %}
